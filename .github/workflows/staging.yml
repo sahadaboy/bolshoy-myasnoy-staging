@@ -1,0 +1,59 @@
+name: staging
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bm_transfer_ci
+          POSTGRES_USER: fixture
+          POSTGRES_PASSWORD: ci-only-not-a-real-secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python deploy/check_release.py
+      - run: pip install -r requirements-staging.txt
+      - run: python manage.py test shop storefront deploy --noinput
+      - run: python deploy/test_postgres.py
+        env:
+          STAGING_TEST_POSTGRES_URL: postgresql://fixture:ci-only-not-a-real-secret@localhost:5432/bm_transfer_ci
+      - run: corepack enable && corepack prepare pnpm@9.15.9 --activate
+      - run: pnpm install --frozen-lockfile && pnpm test && pnpm build
+        working-directory: frontend
+      - run: docker build -t bm-staging-ci .
+      - name: Gunicorn and static HTTP smoke test (no cloud credentials)
+        run: |
+          docker run -d --name bm-staging-smoke -p 10000:10000 \
+            -e DJANGO_SECRET_KEY=ci-smoke-only-0123456789-abcdefghijklmnopqrstuvwxyz-987654321 \
+            -e DATABASE_URL=postgresql://fixture:fixture@localhost/unused \
+            -e STAGING_ALLOWED_HOSTS=localhost \
+            -e AWS_ENDPOINT_URL_S3=https://fixture.storage.eu-central-1.aws.neon.tech \
+            -e AWS_REGION=eu-central-1 -e AWS_STORAGE_BUCKET_NAME=fixture \
+            -e AWS_ACCESS_KEY_ID=fixture -e AWS_SECRET_ACCESS_KEY=fixture \
+            bm-staging-ci gunicorn config.wsgi:application --bind 0.0.0.0:10000 --workers 1 --threads 2 --limit-request-field_size 20000
+          trap 'docker rm -f bm-staging-smoke >/dev/null' EXIT
+          for attempt in $(seq 1 15); do
+            if curl -fsS http://localhost:10000/healthz; then break; fi
+            sleep 2
+          done
+          curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:10000/catalog >/dev/null
+          curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:10000/static/admin/css/base.css >/dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Proto: https' http://localhost:10000/.env)" = 404

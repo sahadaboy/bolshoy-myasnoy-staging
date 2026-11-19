@@ -1,0 +1,34 @@
+# Category photography
+
+These photographs illustrate **categories**, not individual products, stock, product packaging, or store inventory. They must not be reused as missing product photographs. Admin-uploaded category images override these bundled assets.
+
+The source pages below were checked for reusable licensing on 11 November 2026. Each photograph retains its own license. Adapted CC BY-SA photographs are distributed under the corresponding same/share-alike license, with attribution and change information.
+
+Local versions are resized, without enlargement, and re-encoded as WebP for the category UI. Transparent areas are composited over white. No AI-generated objects, labels, or product claims have been added. All photographs remain attributable using the source manifest [`public/categories/sources.json`](./public/categories/sources.json).
+
+| Local file | Category | Photographer / source | Source page | License |
+|---|---|---|---|---|
+| `meat.webp` | Мясо | Ɱ | [StripSteak.jpg](https://commons.wikimedia.org/wiki/File:StripSteak.jpg) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `grocery.webp` | Бакалея | Mx. Granger | [Barilla penne 1.jpg](https://commons.wikimedia.org/wiki/File:Barilla_penne_1.jpg) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| `smoked-fish.webp` | Рыба копчёная | Luc Viatour; source derivative by Chick Bowen | [Maquereau fumé Luc Viatour edit.jpg](https://commons.wikimedia.org/wiki/File:Maquereau_fum%C3%A9_Luc_Viatour_edit.jpg) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `spices.webp` | Приправы | Simon A. Eugster | [Cinnamomum verum spices.jpg](https://commons.wikimedia.org/wiki/File:Cinnamomum_verum_spices.jpg) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `dairy.webp` | Молочная продукция | Stefan Kühn; source crop by Doc James | [Milk glass.jpg](https://commons.wikimedia.org/wiki/File:Milk_glass.jpg) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `drinks.webp` | Безалкогольные напитки | Barry Haynes | [Limes In Water.jpg](https://commons.wikimedia.org/wiki/File:Limes_In_Water.jpg) | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
+| `seafood.webp` | Морепродукты | Pujanak | [Nordseegarnelen (Crangon crangon).jpg](https://commons.wikimedia.org/wiki/File:Nordseegarnelen_(Crangon_crangon).jpg) | [Public domain](https://creativecommons.org/publicdomain/mark/1.0/) |
+| `water.webp` | Вода | Sealle | [Glass half full or half empty.png](https://commons.wikimedia.org/wiki/File:Glass_half_full_or_half_empty.png) | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
+| `frozen-fish.webp` | Рыба свежемороженая | Tiia Monto | [Zander fillet.png](https://commons.wikimedia.org/wiki/File:Zander_fillet.png) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
+| `juice.webp` | Соки | U.S. Department of Health and Human Services | [Orange juice 2.jpg](https://commons.wikimedia.org/wiki/File:Orange_juice_2.jpg) | [Public domain](https://creativecommons.org/publicdomain/mark/1.0/) |
+| `nuts.webp` | Сухофрукты и орехи | Tiia Monto | [Spiced nuts.jpg](https://commons.wikimedia.org/wiki/File:Spiced_nuts.jpg) | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
+| `cheese.webp` | Сыры | Renee Comet / National Cancer Institute | [Cheese.jpg](https://commons.wikimedia.org/wiki/File:Cheese.jpg) | [Public domain](https://creativecommons.org/publicdomain/mark/1.0/) |
+
+The original brand logo belongs to «Большой Мясной» and was supplied by the store owner; it is not covered by the image licenses above.
+
+## Manrope typeface
+
+The interface self-hosts Manrope through `@fontsource-variable/manrope` version 5.3.0, using the Latin and Cyrillic variable WOFF2 subsets.
+
+- Copyright 2019 The Manrope Project Authors ([original project](https://github.com/sharanda/manrope)).
+- License: [SIL Open Font License 1.1](https://openfontlicense.org/).
+- Distribution package: [Fontsource Manrope](https://fontsource.org/fonts/manrope).
+- The installed package's `LICENSE` and `metadata.json` were checked. The font files are not modified, except for the upstream package's subsetting/WOFF2 distribution.
+- Include the original `LICENSE` text from `@fontsource-variable/manrope` with redistributed font files; the source package keeps that notice in `node_modules/@fontsource-variable/manrope/LICENSE`.

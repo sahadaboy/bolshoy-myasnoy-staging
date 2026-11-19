@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: bolshoy-myasnoy-staging
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: staging
+    autoDeployTrigger: checksPass
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings_staging
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: MINIAPP_BOT_USERNAME
+        value: bmmsev_bot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: MINIAPP_ORDERS_ENABLED
+        value: "0"
+      - key: TELEGRAM_NOTIFICATIONS_ENABLED
+        value: "0"
+      - key: MINIAPP_SHOW_DEMO_CONTENT
+        value: "0"
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        value: eu-central-1
+      - key: AWS_STORAGE_BUCKET_NAME
+        value: bm-staging-media
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false

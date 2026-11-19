@@ -1,0 +1,23 @@
+# Locked in a separate staging venv. Local .venv is unchanged.
+asgiref==3.13.0
+boto3==1.44.5
+botocore==1.44.5
+dj-database-url==3.1.2
+Django==6.1.3
+django-storages==1.14.6
+djangorestframework==3.18.3
+et_xmlfile==2.0.0
+gunicorn==27.0.1
+jmespath==1.1.0
+openpyxl==3.1.5
+pillow==13.0.0
+psycopg==3.3.9
+psycopg-binary==3.3.9
+python-dateutil==2.9.0.post0
+s3transfer==0.19.3
+six==1.17.0
+sqlparse==0.6.1
+typing_extensions==4.16.0
+tzdata==2026.6
+urllib3==2.8.0
+whitenoise==6.12.0

@@ -1,0 +1,114 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p><a href="{% url 'admin:shop_product_import_excel' %}">Загрузить прайс</a> ·
+<a href="{% url 'admin:shop_catalogimport_changelist' %}">История импортов</a></p>
+<p><strong>{{ batch.get_status_display }}</strong> · {{ batch.source }} · {{ batch.get_mode_display }} ·
+{{ batch.created_at }} · загрузил {{ batch.uploaded_by|default:"—" }}</p>
+<p>{{ batch.get_category_policy_display }}</p>
+{% if batch.applied_at %}<p>Применил {{ batch.applied_by|default:"—" }} · {{ batch.applied_at }}</p>{% endif %}
+{% if batch.rolled_back_at %}<p>Откачен: {{ batch.rolled_back_by|default:"—" }} · {{ batch.rolled_back_at }}</p>{% endif %}
+{% if batch.error %}<p class="errornote">{% if batch.plan.read_failed %}Файл не прочитан: {{ batch.error }}. Загрузите исправленный Excel заново.{% else %}Применение отменено целиком: {{ batch.error }}. Пересчитайте предпросмотр перед повтором.{% endif %}</p>{% endif %}
+<div style="display:flex;gap:8px 26px;flex-wrap:wrap;margin:20px 0">
+{% for label, count in counts %}<div>{{ label }}: <strong>{{ count }}</strong></div>{% endfor %}
+</div>
+{% if batch.mode == 'full' %}
+<p>Область полного прайса: товары, ранее импортированные из «{{ batch.source }}».
+Товары других источников и ещё не привязанные товары не архивируются.</p>
+{% if batch.plan.large_drop %}<p class="errornote">Значительное сокращение ассортимента. Применение заблокировано до отдельного подтверждения ручной проверки файла.</p>{% endif %}
+{% endif %}
+{% if editable %}
+<form method="post">{% csrf_token %}<input type="hidden" name="version" value="{{ batch.version }}">
+<input type="hidden" name="action" value="refresh">
+<button type="submit" class="button">Пересчитать предпросмотр по текущему каталогу</button></form>
+{% endif %}
+<details open style="margin-top:24px"><summary><strong>Категории из Excel</strong></summary>
+<p>По умолчанию ручные категории сохраняются. Синхронизация удаляет только связи, ранее добавленные этим источником.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="version" value="{{ batch.version }}">
+<input type="hidden" name="action" value="categories">
+<table><thead><tr><th>Категория в файле</th><th>Категория магазина / решение</th></tr></thead><tbody>
+{% for name, target in category_mappings %}<tr><td>{{ name }}</td><td>
+<select name="category_{{ forloop.counter0 }}" {% if not editable %}disabled{% endif %}>
+<option value="">Требуется решение</option>
+<option value="new" {% if target == 'new' %}selected{% endif %}>Создать «{{ name }}»</option>
+<option value="ignore" {% if target == 'ignore' %}selected{% endif %}>Не добавлять категорию из этой строки</option>
+{% for category in categories %}<option value="{{ category.pk }}" {% if target == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>{% endfor %}
+</select></td></tr>{% endfor %}</tbody></table>
+{% if editable %}<p><button type="submit" class="button">Сохранить сопоставления и пересчитать отчёт</button></p>{% endif %}
+</form></details>
+<h2 style="margin-top:24px">Строки и изменения</h2>
+<form method="get"><label>Показать <select name="show">
+<option value="">Все строки</option><option value="create" {% if selected == 'create' %}selected{% endif %}>Новые</option>
+<option value="update" {% if selected == 'update' %}selected{% endif %}>Сопоставленные</option>
+<option value="ambiguous" {% if selected == 'ambiguous' %}selected{% endif %}>Неоднозначные</option>
+<option value="error" {% if selected == 'error' %}selected{% endif %}>Конфликтующие дубли / коды</option>
+<option value="skip" {% if selected == 'skip' %}selected{% endif %}>Пропущенные вручную</option>
+</select></label><button type="submit" class="button">Показать</button></form>
+<p>{{ page.paginator.count }} строк · страница {{ page.number }} из {{ page.paginator.num_pages }}</p>
+<div style="overflow-x:auto"><table style="width:100%">
+<thead><tr><th>Excel / действие</th><th>Товар / постоянный ID</th><th>Было → станет</th><th>Ручная проверка</th></tr></thead><tbody>
+{% for row in page %}<tr>
+<td>{{ row.locations|join:"; " }}<br><strong>{{ row.action_label }}</strong><br>{{ row.reason }}</td>
+<td><strong>{{ row.name }}</strong><br>{{ row.manufacturer }} {{ row.package }}
+{% if row.product_id %}<br><a href="{% url 'admin:shop_product_change' row.product_id %}" target="_blank" rel="noopener">Товар #{{ row.product_id }}</a>{% endif %}
+{% if row.external_id %}<br>Код: {{ row.external_id }}{% endif %}{% if row.barcode %}<br>GTIN: {{ row.barcode }}{% endif %}
+<br>Категории: {{ row.categories|join:", " }}</td>
+<td>{% if row.before %}{{ row.before.name }} → {{ row.name }}<br>{{ row.before.price }} → {% endif %}{{ row.price }} ₽
+<br>{% if row.before %}{{ row.before.unit }} → {% endif %}{{ row.unit }}
+{% if row.before and not row.before.is_active %}<br>Восстановить из архива{% endif %}
+{% if row.min_quantity %}<br>Минимум {{ row.min_quantity }}, шаг {{ row.quantity_step }}{% endif %}
+{% if row.action == 'create' or row.action == 'update' %}<details><summary>Категории до и после</summary>
+<p>Было: {{ row.category_before|join:", "|default:"—" }}</p>
+<p>Станет: {{ row.category_after|join:", "|default:"—" }}</p></details>{% endif %}</td>
+<td>{% if editable %}<details {% if row.action == 'ambiguous' or row.action == 'error' %}open{% endif %}><summary>Выбрать решение</summary>
+{% for pk, label in row.candidates_display %}<p>Кандидат: <a href="{% url 'admin:shop_product_change' pk %}" target="_blank" rel="noopener">#{{ pk }} {{ label }}</a></p>{% endfor %}
+<p><a href="{% url 'admin:shop_product_changelist' %}?q={{ row.name|urlencode }}" target="_blank" rel="noopener">Найти товар в каталоге</a></p>
+<form method="post">{% csrf_token %}<input type="hidden" name="version" value="{{ batch.version }}"><input type="hidden" name="action" value="resolve">
+<input type="hidden" name="row_key" value="{{ row.key }}">
+<label>Решение <select name="resolution">
+<option value="auto">Автоматическое сопоставление</option>
+<option value="link" {% if row.decision.action == 'link' %}selected{% endif %}>Связать с существующим ID</option>
+<option value="create" {% if row.decision.action == 'create' %}selected{% endif %}>Подтверждаю новый товар</option>
+<option value="skip" {% if row.decision.action == 'skip' %}selected{% endif %}>Пропустить строку</option>
+</select></label>
+<p><label>ID товара <input type="number" min="1" name="product_id" value="{{ row.decision.product_id|default:row.product_id|default:'' }}" style="width:110px"></label></p>
+{% if row.unit_changed %}<p><label><input type="checkbox" name="confirm_unit" {% if row.decision.confirm_unit %}checked{% endif %}> Отдельно проверил смену кг/шт, минимум и шаг</label></p>{% endif %}
+{% if row.unit_changed or not row.product_id %}
+<p><label>Минимум <input type="text" inputmode="decimal" name="min_quantity" value="{{ row.decision.min_quantity|default:row.min_quantity }}" style="width:80px"></label>
+<label>Шаг <input type="text" inputmode="decimal" name="quantity_step" value="{{ row.decision.quantity_step|default:row.quantity_step }}" style="width:80px"></label></p>
+{% endif %}
+<button type="submit" class="button">Сохранить решение</button></form></details>{% endif %}</td>
+</tr>{% empty %}<tr><td colspan="4">Нет строк</td></tr>{% endfor %}
+</tbody></table></div>
+<p>{% if page.has_previous %}<a href="?show={{ selected }}&page={{ page.previous_page_number }}">← Предыдущие</a>{% endif %}
+{% if page.has_next %}<a href="?show={{ selected }}&page={{ page.next_page_number }}">Следующие →</a>{% endif %}</p>
+{% if errors_page.paginator.count %}<h2>Ошибки чтения: {{ errors_page.paginator.count }}</h2>
+<ul>{% for item in errors_page %}<li>{{ item.sheet }}, строка {{ item.row }}: {{ item.name }} — {{ item.error }}</li>{% endfor %}</ul>
+<p>{% if errors_page.has_previous %}<a href="?errors_page={{ errors_page.previous_page_number }}">← Предыдущие ошибки</a>{% endif %}
+{% if errors_page.has_next %}<a href="?errors_page={{ errors_page.next_page_number }}">Следующие ошибки →</a>{% endif %}</p>{% endif %}
+{% if missing_page.paginator.count %}<details style="margin:24px 0"><summary>Нет в файле: {{ missing_page.paginator.count }}</summary>
+<p>При частичном обновлении эти товары сохраняются. При полном требуется отдельное подтверждение ниже.
+Если товар есть в другом действующем источнике, он останется активным.</p>
+<ul>{% for item in missing_page %}<li>#{{ item.product_id }} {{ item.name }}</li>{% endfor %}</ul>
+<p>{% if missing_page.has_previous %}<a href="?missing_page={{ missing_page.previous_page_number }}">← Предыдущие</a>{% endif %}
+{% if missing_page.has_next %}<a href="?missing_page={{ missing_page.next_page_number }}">Следующие →</a>{% endif %}</p></details>{% endif %}
+{% if batch.plan.input.sheets %}<details style="margin:24px 0"><summary>Распознанная структура файла</summary>
+{% for item in batch.plan.input.sheets %}<p>{{ item.name }}: заголовки в строке {{ item.header_row }};
+{% for field, column in item.columns.items %} {{ field }} = {{ column }};{% endfor %}
+{% if item.default_unit %} единица по умолчанию: {{ item.default_unit }}{% endif %}</p>{% endfor %}
+<p>SHA-256: <code>{{ batch.file_sha256 }}</code></p></details>{% endif %}
+{% if batch.status == 'review' %}<h2>Применение</h2>
+<p>При ошибках или спорных совпадениях сначала исправьте файл / решения. Товары физически не удаляются.
+Остатки, фотографии, описания, рецепты и заказы импорт не изменяет.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="version" value="{{ batch.version }}"><input type="hidden" name="action" value="apply">
+{% if batch.plan.summary.errors %}<p><label><input type="checkbox" name="accept_errors"> Разрешаю применить корректные строки, ошибки просмотрены. Архивация будет запрещена.</label></p>{% endif %}
+{% if batch.mode == 'full' and batch.plan.large_drop %}<p><label><input type="checkbox" name="reviewed_drop" required> Вручную проверил полноту файла и значительное сокращение ассортимента</label></p>{% endif %}
+{% if batch.mode == 'full' and batch.plan.missing %}<p><label><input type="checkbox" name="archive_missing"> Отдельно подтверждаю архивацию отсутствующих товаров этого источника ({{ batch.plan.summary.missing }})</label></p>{% endif %}
+<p><label><input type="checkbox" name="confirm" required> Проверил отчёт версии {{ batch.version }} и подтверждаю применение</label></p>
+<button type="submit" class="button default">Применить проверенный прайс</button></form>
+{% elif batch.status == 'applied' %}<h2>Восстановление</h2>
+<p>Откат предварительно проверяет все затронутые товары. Если они изменились позже, откат будет целиком заблокирован.
+Новые товары архивируются. Исторические заказы сохраняются.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="rollback"><input type="hidden" name="version" value="{{ batch.version }}">
+<p><label><input type="checkbox" name="confirm_rollback" required> Подтверждаю откат каталожных изменений этого импорта</label></p>
+<button type="submit" class="button">Безопасно откатить импорт</button></form>{% endif %}
+{% endblock %}

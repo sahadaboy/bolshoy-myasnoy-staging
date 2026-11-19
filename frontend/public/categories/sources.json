@@ -1,0 +1,131 @@
+[
+  {
+    "id": 1,
+    "category": "Мясо",
+    "filename": "meat.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:StripSteak.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/2/24/StripSteak.jpg",
+    "author": "Ɱ",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+  },
+  {
+    "id": 2,
+    "category": "Бакалея",
+    "filename": "grocery.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Barilla_penne_1.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1d/Barilla_penne_1.jpg",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1d/Barilla_penne_1.jpg/960px-Barilla_penne_1.jpg",
+    "author": "Mx. Granger",
+    "license": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  {
+    "id": 3,
+    "category": "Рыба копчёная",
+    "filename": "smoked-fish.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Maquereau_fum%C3%A9_Luc_Viatour_edit.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Maquereau_fum%C3%A9_Luc_Viatour_edit.jpg",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e9/Maquereau_fum%C3%A9_Luc_Viatour_edit.jpg/960px-Maquereau_fum%C3%A9_Luc_Viatour_edit.jpg",
+    "author": "Luc Viatour; derivative work: Chick Bowen",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "notes": "Smoked Atlantic mackerel. Source derivative removes a shadow."
+  },
+  {
+    "id": 4,
+    "category": "Приправы",
+    "filename": "spices.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Cinnamomum_verum_spices.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/d/de/Cinnamomum_verum_spices.jpg",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/Cinnamomum_verum_spices.jpg/960px-Cinnamomum_verum_spices.jpg",
+    "author": "Simon A. Eugster",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+  },
+  {
+    "id": 5,
+    "category": "Молочная продукция",
+    "filename": "dairy.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Milk_glass.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Milk_glass.jpg",
+    "author": "Stefan Kühn; crop: Doc James",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/"
+  },
+  {
+    "id": 6,
+    "category": "Безалкогольные напитки",
+    "filename": "drinks.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Limes_In_Water.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/4/46/Limes_In_Water.jpg",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Limes_In_Water.jpg/960px-Limes_In_Water.jpg",
+    "author": "Barry Haynes",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  {
+    "id": 7,
+    "category": "Морепродукты",
+    "filename": "seafood.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Nordseegarnelen_(Crangon_crangon).jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/d/da/Nordseegarnelen_%28Crangon_crangon%29.jpg",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/da/Nordseegarnelen_%28Crangon_crangon%29.jpg/960px-Nordseegarnelen_%28Crangon_crangon%29.jpg",
+    "author": "Pujanak",
+    "license": "Public domain",
+    "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+  },
+  {
+    "id": 8,
+    "category": "Вода",
+    "filename": "water.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Glass_half_full_or_half_empty.png",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ed/Glass_half_full_or_half_empty.png",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ed/Glass_half_full_or_half_empty.png/500px-Glass_half_full_or_half_empty.png",
+    "author": "Sealle",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  {
+    "id": 9,
+    "category": "Рыба свежемороженая",
+    "filename": "frozen-fish.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Zander_fillet.png",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fc/Zander_fillet.png",
+    "thumbUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/Zander_fillet.png/330px-Zander_fillet.png",
+    "author": "Tiia Monto",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "notes": "Raw zander fillet on transparent background. Representative category photograph only, not a product or storage-state claim."
+  },
+  {
+    "id": 10,
+    "category": "Соки",
+    "filename": "juice.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Orange_juice_2.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/a/aa/Orange_juice_2.jpg",
+    "author": "U.S. Department of Health and Human Services",
+    "license": "Public domain (U.S. federal government)",
+    "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+  },
+  {
+    "id": 11,
+    "category": "Сухофрукты и орехи",
+    "filename": "nuts.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Spiced_nuts.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/3/38/Spiced_nuts.jpg",
+    "author": "Tiia Monto",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+  },
+  {
+    "id": 12,
+    "category": "Сыры",
+    "filename": "cheese.webp",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Cheese.jpg",
+    "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/4/45/Cheese.jpg",
+    "author": "Renee Comet / National Cancer Institute",
+    "license": "Public domain",
+    "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/"
+  }
+]
