@@ -1,53 +1,57 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchBanners, productImageUrl } from '../lib/api';
+import { productImageUrl } from '../lib/api';
 import type { Banner } from '../types';
 
-export function BannerCarousel() {
-  const [banners, setBanners] = useState<Banner[]>([]);
+/** Admin records take precedence; unfilled slots reuse the first image. */
+export function bannerSlides(banners: Banner[]): Banner[] {
+  return banners.length
+    ? Array.from({ length: 3 }, (_, position) => banners[position] || banners[0])
+    : [];
+}
+
+export function BannerCarousel({ banners }: { banners: Banner[] }) {
+  const slides = bannerSlides(banners);
   const [index, setIndex] = useState(0);
   const track = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchBanners(controller.signal)
-      .then(setBanners)
-      .catch(() => {
-        /* Optional editorial content never blocks the catalogue. */
-      });
-    return () => controller.abort();
-  }, []);
-  function goTo(next: number) {
+  function goTo(position: number) {
     const element = track.current;
-    if (!element) return;
-    const target = Math.max(0, Math.min(next, banners.length - 1));
+    const slide = element?.children[position] as HTMLElement | undefined;
+    if (!element || !slide) return;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     element.scrollTo({
-      left: target * element.clientWidth,
+      left:
+        slide.getBoundingClientRect().left -
+        element.getBoundingClientRect().left +
+        element.scrollLeft,
       behavior: reduceMotion ? 'instant' : 'smooth',
     });
   }
-  if (!banners.length) return null;
+  if (!slides.length) return null;
   return (
     <section
-      className="banner-carousel"
-      aria-label="Предложения магазина"
+      className="retail-banner-carousel"
+      aria-label="Витрина магазина"
       aria-roledescription="карусель"
     >
       <div
-        className="banner-track"
+        className="retail-banners"
         ref={track}
         onScroll={() => {
           const element = track.current;
-          if (element?.clientWidth) setIndex(Math.round(element.scrollLeft / element.clientWidth));
+          if (!element?.firstElementChild) return;
+          const first = element.firstElementChild as HTMLElement;
+          const second = element.children[1] as HTMLElement;
+          const step = second.offsetLeft - first.offsetLeft;
+          if (step) setIndex(Math.max(0, Math.min(2, Math.round(element.scrollLeft / step))));
         }}
       >
-        {banners.map((banner, position) => (
+        {slides.map((banner, position) => (
           <Link
-            key={banner.id}
+            key={`${banner.id}-${position}`}
             to={banner.target_url}
-            className="banner-slide"
-            aria-label={banner.alt_text || `Предложение магазина ${position + 1}`}
+            className="rp-promo"
+            aria-label={`${banner.alt_text || 'Предложение магазина'} · слайд ${position + 1} из 3`}
           >
             <img
               src={productImageUrl(banner.image) || banner.image}
@@ -60,38 +64,19 @@ export function BannerCarousel() {
           </Link>
         ))}
       </div>
-      {banners.length > 1 && (
-        <div className="banner-controls">
+      <div className="retail-banner-dots" role="group" aria-label="Слайды баннера">
+        {slides.map((_, position) => (
           <button
-            className="icon-button"
-            aria-label="Предыдущий баннер"
-            disabled={index === 0}
-            onClick={() => goTo(index - 1)}
+            type="button"
+            key={position}
+            aria-label={`Слайд ${position + 1} из 3`}
+            aria-pressed={index === position}
+            onClick={() => goTo(position)}
           >
-            <ChevronLeft size={18} aria-hidden="true" />
+            <span />
           </button>
-          <div className="banner-dots">
-            {banners.map((banner, position) => (
-              <button
-                key={banner.id}
-                aria-label={`Баннер ${position + 1}`}
-                aria-pressed={index === position}
-                onClick={() => goTo(position)}
-              >
-                <span />
-              </button>
-            ))}
-          </div>
-          <button
-            className="icon-button"
-            aria-label="Следующий баннер"
-            disabled={index === banners.length - 1}
-            onClick={() => goTo(index + 1)}
-          >
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
-        </div>
-      )}
+        ))}
+      </div>
     </section>
   );
 }

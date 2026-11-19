@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useCategories, useProducts } from '../hooks/useCatalog';
 import { useResource } from '../hooks/useResource';
 import { useCart } from '../context/CartContext';
-import { fetchIdeas, fetchStorefront, productImageUrl } from '../lib/api';
+import { fetchIdeas, fetchStorefront } from '../lib/api';
 import { ProductCard } from '../components/ProductCard';
 import { EmptyState, ErrorState, LoadingGrid } from '../components/States';
 import { SectionHeader, Sheet } from '../components/Retail';
@@ -12,12 +12,16 @@ import { SearchForm } from '../components/Layout';
 import { productWord } from '../lib/text';
 import { RecipeCard } from '../components/RecipeCard';
 import { DinnerInvite } from '../components/DinnerInvite';
+import { BannerCarousel } from '../components/BannerCarousel';
+import { CategoryTagStrip } from '../components/CategoryTagStrip';
+import { catalogFilterParams } from '../lib/catalogFilters';
 
 import { primaryCategories } from '../data/primaryCategories';
 export function CatalogPage() {
   const [params, setParams] = useSearchParams();
   const category = params.get('category') || '';
   const categoryGroup = params.get('category_group') || '';
+  const tag = params.get('tag') || '';
   const search = params.get('search') || '';
   const collection = params.get('collection') || '';
   const unit = params.get('unit') || '';
@@ -26,6 +30,7 @@ export function CatalogPage() {
   const home =
     !category &&
     !categoryGroup &&
+    !tag &&
     !search &&
     !collection &&
     !params.has('all') &&
@@ -35,7 +40,7 @@ export function CatalogPage() {
   const categories = useCategories();
   const showcase = useResource(fetchStorefront);
   const data = useProducts(
-    { category, categoryGroup, search, unit, available, ordering, collection },
+    { category, categoryGroup, tag, search, unit, available, ordering, collection },
     !home,
   );
   const { syncProducts } = useCart();
@@ -52,13 +57,8 @@ export function CatalogPage() {
     if (showcase.data) syncProducts(showcase.data.collections.flatMap((item) => item.products));
   }, [showcase.data, syncProducts]);
   function update(key: string, value: string) {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key === 'category' || key === 'category_group') {
-      next.delete('collection');
-      next.delete(key === 'category' ? 'category_group' : 'category');
-    }
+    if (key === 'tag' && tag === value) return;
+    const next = catalogFilterParams(params, key, value);
     setParams(next);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -105,20 +105,7 @@ export function CatalogPage() {
           ) : (
             <>
               {showcase.data?.banners.length ? (
-                <section className="retail-banners" aria-label="Витрина магазина">
-                  {showcase.data.banners.map((banner, index) => (
-                    <Link key={banner.id} className="rp-promo" to={banner.target_url}>
-                      <img
-                        src={productImageUrl(banner.image) || ''}
-                        alt={banner.alt_text}
-                        width="1100"
-                        height="500"
-                        loading={index ? 'lazy' : 'eager'}
-                        fetchPriority={index ? 'auto' : 'high'}
-                      />
-                    </Link>
-                  ))}
-                </section>
+                <BannerCarousel banners={showcase.data.banners} />
               ) : null}
               {showcase.data?.collections.map((item) => (
                 <section className="rp-shelf" key={item.id}>
@@ -154,6 +141,11 @@ export function CatalogPage() {
             </h1>
             <button onClick={() => sheet.current?.showModal()}>Фильтры</button>
           </div>
+          <CategoryTagStrip
+            tags={data.tags}
+            selected={tag}
+            onSelect={(slug) => update('tag', slug)}
+          />
           <div className="retail-results">
             <span role="status">
               {data.loading

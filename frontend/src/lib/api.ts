@@ -2,6 +2,7 @@ import type {
   Article,
   Banner,
   Category,
+  CatalogTag,
   IdeasResponse,
   Order,
   OrderRequest,
@@ -23,11 +24,13 @@ export interface ProductPage {
   next: string | null;
   previous: string | null;
   results: Product[];
+  tags?: CatalogTag[];
 }
 
 export interface ProductFilters {
   category?: string | number;
   categoryGroup?: string;
+  tag?: string;
   search?: string;
   page?: number;
   unit?: string;
@@ -180,6 +183,7 @@ export async function fetchProducts(
   const params = new URLSearchParams();
   if (filters.category) params.set('category', String(filters.category));
   if (filters.categoryGroup) params.set('category_group', filters.categoryGroup);
+  if (filters.tag) params.set('tag', filters.tag);
   if (filters.search?.trim()) params.set('search', filters.search.trim());
   if (filters.page && filters.page > 1) params.set('page', String(filters.page));
   if (filters.unit) params.set('unit', filters.unit);

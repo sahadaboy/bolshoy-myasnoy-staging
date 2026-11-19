@@ -5,6 +5,12 @@ export interface Category {
   parent_id?: number | null;
 }
 
+export interface CatalogTag {
+  slug: string;
+  label: string;
+  count: number;
+}
+
 /** Editorial images managed by the store; no locally invented promotions. */
 export interface Banner {
   id: number;

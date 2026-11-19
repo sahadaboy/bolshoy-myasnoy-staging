@@ -1,8 +1,45 @@
-import { MapPin, Mail, Phone } from 'lucide-react';
+import {
+  MapPin,
+  Mail,
+  Phone,
+  CircleHelp,
+  SlidersHorizontal,
+  ShieldCheck,
+  ReceiptText,
+  ChevronDown,
+} from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { BackLink } from '../components/Retail';
 import { STORE_BRAND } from '../data/brand';
+
+const helpItems = [
+  {
+    title: 'Как купить продукты?',
+    icon: CircleHelp,
+    text: 'Выберите товары в каталоге, проверьте количество в корзине и перейдите к оформлению самовывоза. Если приём заявок включён, отправленная заявка появится в ваших заказах.',
+  },
+  {
+    title: 'Где забрать покупки?',
+    icon: MapPin,
+    text: 'Севастополь, Камышовое шоссе, 25. В приложении нет доставки и онлайн-оплаты.',
+  },
+  {
+    title: 'Как изменить количество?',
+    icon: SlidersHorizontal,
+    text: 'Используйте плюс и минус в карточке или корзине. Для весовых товаров количество показывается в килограммах, для штучных — в штуках.',
+  },
+  {
+    title: 'Почему не видна история заказов?',
+    icon: ShieldCheck,
+    text: 'История доступна после подтверждённого входа через Telegram. В обычном браузере вы можете просматривать каталог и сохранять корзину.',
+  },
+  {
+    title: 'Как узнать, готова ли заявка?',
+    icon: ReceiptText,
+    text: 'Откройте «Мои заказы» и обновите статус нужной заявки. Время готовности в приложении не назначается автоматически.',
+  },
+];
 
 export default function ProfileInfoPage() {
   const { module } = useParams();
@@ -58,42 +95,22 @@ export default function ProfileInfoPage() {
             )}
           </>
         )}
-        {module === 'help' && (
-          <>
-            <details open>
-              <summary>Как купить продукты?</summary>
-              <p>
-                Выберите товары в каталоге, проверьте количество в корзине и перейдите к оформлению
-                самовывоза. Если приём заявок включён, отправленная заявка появится в ваших заказах.
-              </p>
+        {module === 'help' &&
+          helpItems.map(({ title, text, icon: Icon }, index) => (
+            <details key={title} open={index === 0} className="retail-help-topic">
+              <summary>
+                <Icon size={20} strokeWidth={1.6} aria-hidden="true" />
+                <span>{title}</span>
+                <ChevronDown
+                  className="help-chevron"
+                  size={18}
+                  strokeWidth={1.6}
+                  aria-hidden="true"
+                />
+              </summary>
+              <p>{text}</p>
             </details>
-            <details>
-              <summary>Где забрать покупки?</summary>
-              <p>Севастополь, Камышовое шоссе, 25. В приложении нет доставки и онлайн-оплаты.</p>
-            </details>
-            <details>
-              <summary>Как изменить количество?</summary>
-              <p>
-                Используйте плюс и минус в карточке или корзине. Для весовых товаров количество
-                показывается в килограммах, для штучных — в штуках.
-              </p>
-            </details>
-            <details>
-              <summary>Почему не видна история заказов?</summary>
-              <p>
-                История доступна после подтверждённого входа через Telegram. В обычном браузере вы
-                можете просматривать каталог и сохранять корзину.
-              </p>
-            </details>
-            <details>
-              <summary>Как узнать, готова ли заявка?</summary>
-              <p>
-                Откройте «Мои заказы» и обновите статус нужной заявки. Время готовности в приложении
-                не назначается автоматически.
-              </p>
-            </details>
-          </>
-        )}
+          ))}
         {module === 'about' && (
           <>
             <span className="rp-logo">

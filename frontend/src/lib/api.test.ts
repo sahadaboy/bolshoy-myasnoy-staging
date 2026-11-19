@@ -8,6 +8,32 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('API boundaries', () => {
+  it('sends a category tag with search and page on the existing product endpoint', async () => {
+    const mock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            count: 1,
+            next: null,
+            previous: null,
+            results: [],
+            tags: [{ slug: 'rice', label: 'Рис', count: 1 }],
+          }),
+        ),
+      );
+    vi.stubGlobal('fetch', mock);
+    const response = await fetchProducts({
+      category: '2',
+      tag: 'rice',
+      search: 'Басмати',
+      page: 2,
+    });
+    expect(mock.mock.calls[0][0]).toBe(
+      '/api/products/?category=2&tag=rice&search=%D0%91%D0%B0%D1%81%D0%BC%D0%B0%D1%82%D0%B8&page=2',
+    );
+    expect(response.tags?.[0].slug).toBe('rice');
+  });
   it('keeps DRF next links on the local proxy and rejects unrelated paths', () => {
     expect(localApiPath('http://127.0.0.1:8001/api/products/?category=2&page=2')).toBe(
       '/api/products/?category=2&page=2',
