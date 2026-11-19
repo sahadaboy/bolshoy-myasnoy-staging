@@ -14,6 +14,7 @@ import { useCart } from '../context/CartContext';
 import '../preview/preview.css';
 import '../retail.css';
 import { STORE_BRAND } from '../data/brand';
+import { catalogFilterParams } from '../lib/catalogFilters';
 
 const navigation = [
   { to: '/catalog', label: 'Каталог', icon: Grid2X2 },
@@ -33,18 +34,14 @@ export function SearchForm({ onFilters }: { onFilters?: () => void }) {
   useEffect(() => {
     if (value.trim() === query) return;
     const timeout = window.setTimeout(() => {
-      const params = new URLSearchParams(search);
-      if (value.trim()) params.set('search', value.trim());
-      else params.delete('search');
+      const params = catalogFilterParams(new URLSearchParams(search), 'search', value.trim());
       navigate(`/catalog${params.size ? `?${params}` : ''}`, { replace: true });
     }, 350);
     return () => window.clearTimeout(timeout);
   }, [value, query, search, navigate]);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const params = new URLSearchParams(search);
-    if (value.trim()) params.set('search', value.trim());
-    else params.delete('search');
+    const params = catalogFilterParams(new URLSearchParams(search), 'search', value.trim());
     navigate(`/catalog${params.size ? `?${params}` : ''}`, { replace: true });
     event.currentTarget.querySelector('input')?.blur();
   }
@@ -80,8 +77,26 @@ export function SearchForm({ onFilters }: { onFilters?: () => void }) {
 export function Layout() {
   const { itemCount } = useCart();
   const { pathname } = useLocation();
+  const [inputMode, setInputMode] = useState<'pointer' | 'keyboard'>('keyboard');
+  useEffect(() => {
+    const keyboard = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Tab' ||
+        event.key.startsWith('Arrow') ||
+        event.key === 'Home' ||
+        event.key === 'End'
+      )
+        setInputMode('keyboard');
+    };
+    document.addEventListener('keydown', keyboard, true);
+    return () => document.removeEventListener('keydown', keyboard, true);
+  }, []);
   return (
-    <div className="rp retail">
+    <div
+      className="rp retail"
+      data-input-mode={inputMode}
+      onPointerDownCapture={() => setInputMode('pointer')}
+    >
       <div className="rp-paper">
         <a className="skip-link" href="#main">
           К содержимому

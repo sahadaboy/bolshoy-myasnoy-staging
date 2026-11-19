@@ -2,9 +2,11 @@
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
 from django.db import connection
+from django.db.models import Count
 import re
 from .models import Category, Product
 from .serializers import CategorySerializer, ProductSerializer
+from .catalog_tags import rules_for
 
 # Presentation groups leave the original categories and their product links intact.
 CATEGORY_GROUPS = {
@@ -30,6 +32,15 @@ class ProductPagination(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 100
 
+    def paginate_queryset(self, queryset, request, view=None):
+        self.catalog_tags = getattr(view, 'catalog_tags', [])
+        return super().paginate_queryset(queryset, request, view=view)
+
+    def get_paginated_response(self, data):
+        response = super().get_paginated_response(data)
+        response.data['tags'] = self.catalog_tags
+        return response
+
 class ProductListView(generics.ListAPIView):
     serializer_class = ProductSerializer
     pagination_class = ProductPagination  
@@ -53,6 +64,28 @@ class ProductListView(generics.ListAPIView):
             queryset = queryset.filter(
                 categories__id=category_id
             )
+
+        category_name = (
+            Category.objects.filter(pk=category_id).values_list('name', flat=True).first()
+            if category_id else None
+        )
+        rules = rules_for((category_name or '') if category_id else None, group)
+        # Keep the nonempty category chips stable while search/other filters
+        # narrow the results. Distinct counts also handle multiple category links.
+        counts = queryset.order_by().aggregate(**{
+            f'tag_{index}': Count('pk', filter=rule.condition, distinct=True)
+            for index, rule in enumerate(rules)
+        }) if rules else {}
+        self.catalog_tags = [
+            {'slug': rule.slug, 'label': rule.label, 'count': counts[f'tag_{index}']}
+            for index, rule in enumerate(rules) if counts[f'tag_{index}'] > 0
+        ]
+        tag = self.request.query_params.get('tag')
+        if tag:
+            rule = next((rule for rule in rules if rule.slug == tag), None)
+            if rule is None:
+                raise ValidationError({'tag': 'Тег не относится к выбранной категории.'})
+            queryset = queryset.filter(rule.condition)
 
         if search:
             if len(search) > 120:

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Category, Product } from '../types';
+import { useNavigationType } from 'react-router-dom';
+import type { Category, Product, CatalogTag } from '../types';
 import {
   fetchCategories,
   fetchProduct,
@@ -58,7 +59,13 @@ export function useCategories() {
   return { categories, loading, error, retry };
 }
 
-type ProductSnapshot = { products: Product[]; count: number; next: string | null; expires: number };
+type ProductSnapshot = {
+  products: Product[];
+  count: number;
+  next: string | null;
+  tags: CatalogTag[];
+  expires: number;
+};
 const productSnapshots = new Map<string, ProductSnapshot>();
 function rememberProducts(key: string, value: Omit<ProductSnapshot, 'expires'>) {
   productSnapshots.delete(key);
@@ -67,25 +74,37 @@ function rememberProducts(key: string, value: Omit<ProductSnapshot, 'expires'>) 
 }
 
 export function useProducts(
-  { category, categoryGroup, search, unit, available, ordering, collection }: ProductFilters = {},
+  {
+    category,
+    categoryGroup,
+    tag,
+    search,
+    unit,
+    available,
+    ordering,
+    collection,
+  }: ProductFilters = {},
   enabled = true,
 ) {
+  const navigationType = useNavigationType();
   const cacheKey = JSON.stringify([
     category || '',
     categoryGroup || '',
+    tag || '',
     search || '',
     unit || '',
     !!available,
     ordering || '',
     collection || '',
   ]);
-  const initial = productSnapshots.get(cacheKey);
+  const initial = navigationType === 'POP' ? productSnapshots.get(cacheKey) : undefined;
   const [products, setProducts] = useState<Product[]>(initial?.products || []);
   const [loading, setLoading] = useState(enabled && !initial);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(initial?.count || 0);
   const [next, setNext] = useState<string | null>(initial?.next || null);
+  const [tags, setTags] = useState<CatalogTag[]>(initial?.tags || []);
   const [attempt, setAttempt] = useState(0);
   const currentController = useRef<AbortController | null>(null);
   const busy = useRef(false);
@@ -101,10 +120,11 @@ export function useProducts(
       return () => controller.abort();
     }
     const cached = productSnapshots.get(cacheKey);
-    if (attempt === 0 && cached && cached.expires > Date.now()) {
+    if (navigationType === 'POP' && attempt === 0 && cached && cached.expires > Date.now()) {
       setProducts(cached.products);
       setCount(cached.count);
       setNext(cached.next);
+      setTags(cached.tags);
       setLoading(false);
       setLoadingMore(false);
       setError(null);
@@ -115,11 +135,12 @@ export function useProducts(
     setProducts([]);
     setNext(null);
     setCount(0);
+    setTags([]);
     setLoading(true);
     setLoadingMore(false);
     setError(null);
     fetchProducts(
-      { category, categoryGroup, search, unit, available, ordering, collection },
+      { category, categoryGroup, tag, search, unit, available, ordering, collection },
       controller.signal,
     )
       .then((page) => {
@@ -127,7 +148,13 @@ export function useProducts(
         setProducts(page.results);
         setCount(page.count);
         setNext(page.next);
-        rememberProducts(cacheKey, { products: page.results, count: page.count, next: page.next });
+        setTags(page.tags || []);
+        rememberProducts(cacheKey, {
+          products: page.results,
+          count: page.count,
+          next: page.next,
+          tags: page.tags || [],
+        });
       })
       .catch((reason) => {
         if (!controller.signal.aborted) setError(errorMessage(reason));
@@ -141,6 +168,7 @@ export function useProducts(
   }, [
     category,
     categoryGroup,
+    tag,
     search,
     unit,
     available,
@@ -149,6 +177,7 @@ export function useProducts(
     attempt,
     enabled,
     cacheKey,
+    navigationType,
   ]);
 
   const loadMore = useCallback(async () => {
@@ -167,7 +196,12 @@ export function useProducts(
             [...previous, ...page.results].map((product) => [product.id, product]),
           ).values(),
         ];
-        rememberProducts(cacheKey, { products: combined, count: page.count, next: page.next });
+        rememberProducts(cacheKey, {
+          products: combined,
+          count: page.count,
+          next: page.next,
+          tags: page.tags || [],
+        });
         return combined;
       });
       setCount(page.count);
@@ -188,6 +222,7 @@ export function useProducts(
     loadingMore,
     error,
     count,
+    tags,
     next,
     hasMore: Boolean(next),
     loadMore,
