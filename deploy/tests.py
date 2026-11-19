@@ -105,17 +105,25 @@ class StagingBoundaryTests(SimpleTestCase):
                     self.assertEqual(self.client.get(path).status_code, 404, path)
 
     @skipUnless(find_spec('dj_database_url') and find_spec('psycopg'), 'Requires the separate staging dependencies.')
-    def test_staging_settings_force_safe_flags_and_postgres_without_using_local_database(self):
+    def test_staging_settings_default_closed_and_allow_explicit_opt_in_without_changing_database(self):
         environment = {**os.environ, 'DJANGO_SETTINGS_MODULE':'config.settings_staging',
             'DJANGO_SECRET_KEY':'ci-security-test-only-0123456789-abcdefghijklmnopqrstuvwxyz-987654321',
             'DATABASE_URL':'postgresql://fixture:fixture@localhost/staging?sslmode=require',
             'STAGING_ALLOWED_HOSTS':'staging.example',
             'AWS_ENDPOINT_URL_S3':'https://fixture.storage.eu-central-1.aws.neon.tech',
             'AWS_STORAGE_BUCKET_NAME':'test', 'AWS_ACCESS_KEY_ID':'fixture', 'AWS_SECRET_ACCESS_KEY':'fixture', 'AWS_REGION':'eu-central-1',
-            'MINIAPP_ORDERS_ENABLED':'1', 'TELEGRAM_NOTIFICATIONS_ENABLED':'1', 'DJANGO_DEBUG':'1'}
+            'MINIAPP_ORDERS_ENABLED':'0', 'TELEGRAM_NOTIFICATIONS_ENABLED':'0', 'DJANGO_DEBUG':'1',
+            'TELEGRAM_ADMIN_CHAT_ID':'-100001', 'TELEGRAM_BOT_TOKEN':'ci-bot-placeholder'}
         code = 'import django,json; django.setup(); from django.conf import settings as s; print(json.dumps([s.DEBUG,s.MINIAPP_ORDERS_ENABLED,s.TELEGRAM_NOTIFICATIONS_ENABLED,s.DATABASES["default"]["ENGINE"],s.STORAGES["default"]["OPTIONS"]["addressing_style"]]))'
         result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(result.stdout), [False,False,False,'django.db.backends.postgresql','path'])
+        environment.update(MINIAPP_ORDERS_ENABLED='1', TELEGRAM_NOTIFICATIONS_ENABLED='1')
+        result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(result.stdout), [False,True,True,'django.db.backends.postgresql','path'])
+        environment['TELEGRAM_ADMIN_CHAT_ID'] = ''
+        result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        environment['TELEGRAM_ADMIN_CHAT_ID'] = '-100001'
         environment['DATABASE_URL'] = 'sqlite:///local.sqlite3'
         result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

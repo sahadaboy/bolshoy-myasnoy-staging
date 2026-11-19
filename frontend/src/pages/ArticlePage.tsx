@@ -78,7 +78,7 @@ export default function ArticlePage() {
                         <Plus size={20} />
                       </button>
                     ) : item.product && !item.product.is_available ? (
-                      <span className="retail-unavailable">Нет в наличии</span>
+                      <span className="retail-unavailable">Недоступен для заявки</span>
                     ) : null}
                   </li>
                 ))}

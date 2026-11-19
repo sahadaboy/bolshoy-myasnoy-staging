@@ -19,7 +19,7 @@ class StoreProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreProfile
         fields = ['name', 'description', 'address', 'opening_hours', 'phone', 'telegram_url',
-                  'vk_url', 'email', 'map_url', 'map_embed_url', 'photos']
+                  'vk_url', 'instagram_url', 'email', 'map_url', 'map_embed_url', 'photos']
 
 
 class StoreProfileView(APIView):
@@ -27,7 +27,7 @@ class StoreProfileView(APIView):
         profile = StoreProfile.objects.prefetch_related(Prefetch('photos',
             queryset=StorePhoto.objects.filter(is_active=True).exclude(image=''), to_attr='live_photos')).first()
         if not profile:
-            profile = StoreProfile(name='Большой Мясной', address='Севастополь, Камышовое шоссе, 25')
+            profile = StoreProfile(address='Севастополь, Камышовое шоссе, 25')
             profile.live_photos = []
         return Response(StoreProfileSerializer(profile, context={'request': request}).data)
 

@@ -148,6 +148,12 @@ class Ingredient(models.Model):
     is_optional = models.BooleanField('Необязательный ингредиент', default=False)
     recipe_unit = models.CharField('Единица количества в рецепте', max_length=3, blank=True,
         choices=[('kg', 'кг'), ('pcs', 'шт')], help_text='Фиксируется при привязке. Смена единицы товара требует повторной проверки рецепта.')
+    amount_value = models.DecimalField('Количество ингредиента', max_digits=9, decimal_places=3,
+        null=True, blank=True, help_text='Точное количество на базовые порции, например 200 г. Не число упаковок.')
+    amount_unit = models.CharField('Мера ингредиента', max_length=4, blank=True,
+        choices=[('g', 'г'), ('ml', 'мл'), ('pcs', 'шт.'), ('can', 'банка')])
+    pack_size = models.DecimalField('Количество в единице продажи', max_digits=9, decimal_places=3,
+        null=True, blank=True, help_text='В той же мере: 500 г в упаковке, 1000 г в кг или 1 банка. Только проверенное значение.')
 
     class Meta:
         ordering = ['sort_order', 'pk']
@@ -164,6 +170,44 @@ class Ingredient(models.Model):
             raise ValidationError({'purchase_quantity': 'Количество должно соответствовать единице, минимуму и шагу выбранного товара.'})
         if self.recipe_quantity is not None and (not self.product_id or self.recipe_quantity <= 0):
             raise ValidationError({'recipe_quantity': 'Укажите товар и положительное количество в его единице продажи.'})
+        if self.amount_value is not None:
+            if self.amount_value <= 0 or not self.amount_unit:
+                raise ValidationError({'amount_value': 'Нужны положительное количество и мера ингредиента.'})
+            if self.product_id and (not self.pack_size or self.pack_size <= 0):
+                raise ValidationError({'pack_size': 'Укажите проверенное количество в единице продажи.'})
+            if self.product_id and self.product.unit == 'kg' and (self.amount_unit != 'g' or self.pack_size != 1000):
+                raise ValidationError({'pack_size': 'Для весового товара используйте граммы: 1000 г в кг.'})
+        elif self.amount_unit or self.pack_size is not None:
+            raise ValidationError({'amount_value': 'Сначала укажите точное количество ингредиента.'})
+
+
+class IngredientAlternative(models.Model):
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name='alternatives', verbose_name='Ингредиент рецепта')
+    product = models.ForeignKey('shop.Product', on_delete=models.CASCADE, verbose_name='Проверенная замена')
+    pack_size = models.DecimalField('Количество в единице продажи', max_digits=9, decimal_places=3,
+        help_text='В мере ингредиента. Сверьте объём упаковки и состав товара.')
+    sale_unit = models.CharField('Проверенная единица продажи', max_length=3, choices=[('kg', 'кг'), ('pcs', 'шт.')])
+    is_active = models.BooleanField('Разрешить выбор', default=False)
+    sort_order = models.PositiveIntegerField('Порядок', default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'pk']
+        constraints = [models.UniqueConstraint(fields=['ingredient', 'product'], name='unique_ingredient_alternative')]
+        verbose_name = 'Проверенная замена ингредиента'
+        verbose_name_plural = 'Проверенные замены ингредиентов'
+
+    def __str__(self):
+        return str(self.product)
+
+    def clean(self):
+        if not self.pack_size or self.pack_size <= 0:
+            raise ValidationError({'pack_size': 'Укажите положительный проверенный размер упаковки.'})
+        if self.product_id and self.sale_unit != self.product.unit:
+            raise ValidationError({'sale_unit': 'Единица товара изменилась. Проверьте привязку.'})
+        if self.ingredient_id and not self.ingredient.amount_value:
+            raise ValidationError({'ingredient': 'Для замен нужно точное количество и мера ингредиента.'})
+        if self.product_id and self.product.unit == 'kg' and self.ingredient_id and (self.ingredient.amount_unit != 'g' or self.pack_size != 1000):
+            raise ValidationError({'pack_size': 'Весовая замена: 1000 г в кг.'})
 
 
 class RecipeStep(models.Model):
@@ -200,10 +244,10 @@ def order_number():
 class Order(models.Model):
     class Status(models.TextChoices):
         NEW = 'new', 'Новый'
-        CONFIRMED = 'confirmed', 'Принят'
+        CONFIRMED = 'confirmed', 'Подтверждён'
         PREPARING = 'preparing', 'Собирается'
-        READY = 'ready', 'Готов'
-        COLLECTED = 'collected', 'Завершён'
+        READY = 'ready', 'Готов к самовывозу'
+        COLLECTED = 'collected', 'Выдан'
         CANCELLED = 'cancelled', 'Отменён'
 
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

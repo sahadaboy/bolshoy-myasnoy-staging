@@ -57,7 +57,7 @@ const CardView = memo(function CardView({
           )
         ) : (
           <span className="retail-unavailable">
-            {product.is_available ? 'Уточните в магазине' : 'Нет в наличии'}
+            {product.is_available ? 'Уточните в магазине' : 'Недоступен для заявки'}
           </span>
         )}
       </div>

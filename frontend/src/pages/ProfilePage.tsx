@@ -7,6 +7,7 @@ import { fetchOrders, updateCustomerPhone } from '../lib/api';
 import { useResource } from '../hooks/useResource';
 import { formatPhoneInput } from '../lib/phone';
 import { formatMoney, priceKopecks } from '../lib/quantity';
+import { STORE_BRAND } from '../data/brand';
 
 const rows = [
   {
@@ -57,10 +58,9 @@ export default function ProfilePage() {
     <>
       <div className="page-intro">
         <h1>Профиль</h1>
-        <p>Ваши покупки и наш магазин</p>
       </div>
       <div className="retail-user-card">
-        <span>
+        <span className="customer-avatar-frame">
           {user?.photo_url && !photoFailed ? (
             <img
               className="customer-avatar"
@@ -127,7 +127,8 @@ export default function ProfilePage() {
                 setSaving(true);
                 setNotice('');
                 try {
-                  await updateCustomerPhone(phone);
+                  const saved = await updateCustomerPhone(phone);
+                  setPhone(formatPhoneInput(saved.phone));
                   session.retry();
                   setEditing(false);
                   setNotice('Номер сохранён.');
@@ -174,7 +175,7 @@ export default function ProfilePage() {
           ) : !orders.data?.results.length ? (
             <div className="customer-empty-orders">
               <ReceiptText size={26} strokeWidth={1.4} />
-              <h3>Ваши покупки — здесь</h3>
+              <h3>Здесь появятся заказы</h3>
               <p>После первого заказа здесь появятся его состав и статус.</p>
               <Link className="retail-text-link" to="/catalog">
                 Выбрать продукты <ChevronRight size={16} />
@@ -215,7 +216,7 @@ export default function ProfilePage() {
         ))}
       </nav>
       <div className="retail-profile-brand">
-        <span>Большой Мясной</span>
+        <span>{STORE_BRAND}</span>
         <p>Всегда большой выбор хорошего мяса!</p>
       </div>
     </>

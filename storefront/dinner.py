@@ -1,11 +1,11 @@
-"""Deterministic dinner selection. No substitutes, generated recipes or AI calls."""
+"""Deterministic recipes and explicitly reviewed catalogue links. No AI calls."""
 from collections import defaultdict
 from decimal import Decimal, ROUND_CEILING
 from math import gcd
 from django.db.models import Prefetch
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound, ValidationError, APIException
-from .models import DinnerSettings, DinnerQuestion, DinnerOption, DinnerRecipe, Ingredient, PantryIngredient
+from .models import DinnerSettings, DinnerQuestion, DinnerOption, DinnerRecipe, Ingredient, PantryIngredient, IngredientAlternative
 from .quantities import valid_quantity, line_total
 
 
@@ -20,6 +20,13 @@ class DinnerAnswers(serializers.Serializer):
     exclude = serializers.ListField(child=serializers.IntegerField(min_value=1), max_length=100, default=list)
     answers = serializers.DictField(child=serializers.ListField(
         child=serializers.IntegerField(min_value=1), max_length=20), default=dict)
+    recipe_id = serializers.IntegerField(min_value=1, required=False)
+    replacements = serializers.DictField(child=serializers.IntegerField(min_value=0), default=dict)
+
+    def validate_replacements(self, value):
+        if len(value) > 40 or any(not key.isdecimal() or int(key) < 1 for key in value):
+            raise serializers.ValidationError('Некорректный список замен.')
+        return value
 
 
 class ShoppingItem(serializers.Serializer):
@@ -56,7 +63,7 @@ def schema():
             'ingredients': list(ingredient_choices().values('id', 'name')),
             'questions': [{'key': question.key, 'title': question.title, 'help_text': question.help_text,
                            'required': question.required,
-                           'options': [{'id': option.pk, 'label': option.label, 'is_any': option.is_any}
+                           'options': [{'id': option.pk, 'label': option.label, 'value': option.value, 'is_any': option.is_any}
                                        for option in question.live_options]} for question in questions]}
 
 
@@ -74,11 +81,11 @@ def validate_answers(data):
             raise ValidationError({key: 'Список ингредиентов изменился. Обновите вопросы.'})
         if key in active and active[key].required and not values:
             raise ValidationError({key: 'Ответьте на обязательный вопрос.'})
-    if set(data['answers']) - {key for key in active if key in ('dish', 'spice', 'preferences')}:
+    if set(data['answers']) - {key for key in active if key in ('dish', 'spice', 'preferences', 'time')}:
         raise ValidationError({'answers': 'Вопросы изменились. Начните подбор заново.'})
-    chosen = set()
+    chosen, time_limit = set(), None
     for key, question in active.items():
-        if key not in ('dish', 'spice', 'preferences'):
+        if key not in ('dish', 'spice', 'preferences', 'time'):
             continue
         values = set(data['answers'].get(key, []))
         options = {option.pk: option for option in question.live_options}
@@ -86,8 +93,53 @@ def validate_answers(data):
             raise ValidationError({'answers': 'Выбран недоступный ответ.'})
         if question.required and not values:
             raise ValidationError({'answers': f'Ответьте на вопрос «{question.title}».'})
-        chosen.update(value for value in values if not options[value].is_any)
-    return config, chosen
+        if key == 'time':
+            if values:
+                option = options[next(iter(values))]
+                if not option.is_any:
+                    if not option.max_minutes:
+                        raise ValidationError({'answers': 'Ограничение времени не настроено.'})
+                    time_limit = option.max_minutes
+        else:
+            chosen.update(value for value in values if not options[value].is_any)
+    if data.get('replacements') and not data.get('recipe_id'):
+        raise ValidationError({'replacements': 'Сначала выберите рецепт.'})
+    return config, chosen, time_limit
+
+
+def ingredient_amount(item, servings, base_servings, product=None, pack_size=None):
+    """Physical recipe measures are independent of rounded purchasable packs."""
+    factor = Decimal(servings) / base_servings
+    product = product or item.product
+    if item.amount_value is not None:
+        physical = item.amount_value * factor
+        size = pack_size if pack_size is not None else item.pack_size
+        valid = size is not None and size > 0 and item.amount_unit
+        if product and product.unit == 'kg' and (item.amount_unit != 'g' or size != 1000):
+            valid = False
+        needed = physical / size if valid else None
+        number = format(physical.quantize(Decimal('.001')).normalize(), 'f').replace('.', ',')
+        label = dict(Ingredient._meta.get_field('amount_unit').choices).get(item.amount_unit, '')
+        if item.amount_unit == 'can':
+            label = 'банка' if physical == 1 else 'банки' if physical % 1 else ('банки' if physical % 10 in (2, 3, 4) and physical % 100 not in (12, 13, 14) else 'банок')
+        return needed, f'{number} {label}'.strip()
+    base = item.recipe_quantity if item.recipe_quantity is not None else (
+        item.purchase_quantity if item.purchase_quantity is not None else (product.min_quantity if product else None))
+    needed = base * factor if base is not None else None
+    display = item.amount
+    if needed is not None and product:
+        unit = item.recipe_unit or product.unit
+        number = needed * 1000 if unit == 'kg' else needed
+        display = format(number.quantize(Decimal('.001')).normalize(), 'f').replace('.', ',') + (' г' if unit == 'kg' else ' упак.')
+    return needed, display
+
+
+def reviewed_alternatives(item):
+    return [option for option in item.alternatives.all() if option.is_active and item.amount_value
+            and option.product.is_active and option.product.is_available and option.pack_size > 0
+            and option.product.price.is_finite() and option.product.price >= 0
+            and option.sale_unit == option.product.unit
+            and (option.product.unit != 'kg' or item.amount_unit == 'g' and option.pack_size == 1000)]
 
 
 def purchase_quantity(product, needed):
@@ -116,12 +168,14 @@ def purchase_quantity(product, needed):
 
 def suggestions(data, request, *, recipe_id=None):
     from shop.serializers import ProductSerializer
-    config, chosen_options = validate_answers(data)
+    config, chosen_options, time_limit = validate_answers(data)
+    recipe_id = recipe_id or data.get('recipe_id')
     owned, excluded = set(data['pantry']), set(data['exclude'])
     rules = DinnerRecipe.objects.filter(is_active=True, article__is_published=True,
         article__is_demo=False, article__kind='recipe').select_related('article').prefetch_related(
-        'options', 'article__steps', Prefetch('article__ingredients', queryset=Ingredient.objects.select_related(
-            'ingredient_type', 'product').prefetch_related('product__categories')))
+        Prefetch('options', queryset=DinnerOption.objects.select_related('question')), 'article__steps', Prefetch('article__ingredients', queryset=Ingredient.objects.select_related(
+            'ingredient_type', 'product').prefetch_related('product__categories', Prefetch('alternatives',
+                queryset=IngredientAlternative.objects.select_related('product').prefetch_related('product__categories')))))
     if recipe_id is not None:
         rules = rules.filter(pk=recipe_id)
     result = []
@@ -129,31 +183,48 @@ def suggestions(data, request, *, recipe_id=None):
         article = rule.article
         if not article.servings or not chosen_options <= {option.pk for option in rule.options.all()}:
             continue
+        selected_spice = set(data['answers'].get('spice', [])) & chosen_options
+        recipe_spice = {option.pk for option in rule.options.all() if option.question.key == 'spice' and not option.is_any}
+        if selected_spice and recipe_spice != selected_spice:
+            # A contradictory Admin rule must not make a hot recipe "mild".
+            continue
+        if time_limit and (not article.duration_minutes or article.duration_minutes > time_limit):
+            continue
         ingredients = list(article.ingredients.all())
         if not ingredients or any(item.ingredient_type_id in excluded for item in ingredients):
             continue
         if any(not item.ingredient_type_id or not item.ingredient_type.is_active for item in ingredients):
             continue
+        if set(data.get('replacements', {})) - {str(item.pk) for item in ingredients}:
+            raise ValidationError({'replacements': 'Замена не относится к выбранному рецепту.'})
         needed, products, ingredient_ids = defaultdict(Decimal), {}, defaultdict(list)
         composition, failed = [], False
         for item in ingredients:
             have = item.ingredient_type_id in owned
             product = item.product
-            base = item.recipe_quantity if item.recipe_quantity is not None else (
-                item.purchase_quantity if item.purchase_quantity is not None else (product.min_quantity if product else None))
-            scaled = base * data['servings'] / article.servings if base is not None else None
-            available = bool(product and product.is_active and product.is_available and product.unit == item.recipe_unit and scaled is not None and
+            alternatives = reviewed_alternatives(item)
+            replacement_id = data.get('replacements', {}).get(str(item.pk), 0)
+            replacement = next((option for option in alternatives if option.pk == replacement_id), None)
+            if replacement_id and not replacement:
+                raise AssortmentChanged('Выбранная замена больше не доступна в каталоге.')
+            if replacement:
+                product = replacement.product
+            scaled, display_amount = ingredient_amount(item, data['servings'], article.servings, product,
+                replacement.pack_size if replacement else None)
+            sale_unit = replacement.sale_unit if replacement else item.recipe_unit
+            available = bool(product and product.is_active and product.is_available and product.price.is_finite() and product.price >= 0 and product.unit == sale_unit and scaled is not None and
                              scaled > 0 and purchase_quantity(product, scaled) is not None)
             if not have and not available and not item.is_optional:
                 failed = True
                 break
-            display_amount = item.amount
-            if scaled is not None and product:
-                recipe_unit = item.recipe_unit or product.unit
-                number = scaled * 1000 if recipe_unit == 'kg' else scaled
-                display_amount = format(number.quantize(Decimal('.001')).normalize(), 'f').replace('.', ',') + (' г' if recipe_unit == 'kg' else ' упак.')
+            choices = []
+            if not have and alternatives:
+                if item.product and item.product.is_active and item.product.is_available:
+                    choices.append({'id': 0, 'product': ProductSerializer(item.product, context={'request': request}).data})
+                choices.extend({'id': option.pk, 'product': ProductSerializer(option.product, context={'request': request}).data} for option in alternatives)
             composition.append({'id': item.pk, 'ingredient_type_id': item.ingredient_type_id,
                 'name': item.name, 'amount': display_amount, 'have': have, 'optional': item.is_optional,
+                'replacement_id': replacement_id, 'alternatives': choices,
                 'status': 'owned' if have else 'buy' if available else 'optional_unavailable'})
             if not have and available:
                 needed[product.pk] += scaled
@@ -175,6 +246,8 @@ def suggestions(data, request, *, recipe_id=None):
             continue
         result.append({'id': rule.pk, 'slug': article.slug, 'title': article.title,
             'description': article.description, 'servings': data['servings'],
+            'image': request.build_absolute_uri(article.cover.url) if article.cover else None,
+            'notes': article.body,
             'duration_minutes': article.duration_minutes, 'ingredients': composition,
             'steps': [step.text for step in article.steps.all()], 'shopping': shopping,
             'total': format(total, '.2f'), 'owned_count': sum(item['have'] for item in composition),

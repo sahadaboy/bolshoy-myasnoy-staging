@@ -13,6 +13,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useCart } from '../context/CartContext';
 import '../preview/preview.css';
 import '../retail.css';
+import { STORE_BRAND } from '../data/brand';
 
 const navigation = [
   { to: '/catalog', label: 'Каталог', icon: Grid2X2 },
@@ -86,11 +87,11 @@ export function Layout() {
           К содержимому
         </a>
         <header className="rp-header">
-          <Link className="rp-logo" to="/catalog" aria-label="Большой Мясной — главная">
+          <Link className="rp-logo" to="/catalog" aria-label={`${STORE_BRAND} — главная`}>
             <img src="/brand-logo-original.png" alt="" width="52" height="52" />
           </Link>
           <Link className="rp-store" to="/about">
-            <strong>Большой Мясной</strong>
+            <strong>{STORE_BRAND}</strong>
             <span>Севастополь, Камышовое шоссе, 25</span>
           </Link>
           <Link className="rp-store-arrow" aria-label="О нас" to="/about">

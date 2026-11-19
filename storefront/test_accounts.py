@@ -195,7 +195,7 @@ class AccountOrderTests(TestCase):
         order.status='ready'; model_admin=admin.site._registry[Order]
         model_admin.save_model(request,order,None,True); model_admin.save_model(request,order,None,True)
         self.assertEqual(OrderStatusEvent.objects.filter(order=order).count(),2)
-        self.assertEqual(self.client.get(f'/api/orders/{order.public_id}/').data['status_label'],'Готов')
+        self.assertEqual(self.client.get(f'/api/orders/{order.public_id}/').data['status_label'],'Готов к самовывозу')
         self.client.force_login(user)
         for name in ('customer','ordernotification'):
             self.assertEqual(self.client.get(reverse(f'admin:storefront_{name}_changelist')).status_code,200)
@@ -204,3 +204,66 @@ class AccountOrderTests(TestCase):
         from django.core.exceptions import ValidationError
         profile=StoreProfile(map_embed_url='https://evil.example/steal')
         with self.assertRaises(ValidationError): profile.full_clean()
+
+    @override_settings(MINIAPP_ORDERS_ENABLED=False, TELEGRAM_NOTIFICATIONS_ENABLED=False)
+    def test_phone_post_persists_without_orders_or_notifications_and_across_devices(self):
+        with patch('storefront.notifications.telegram_call') as sender:
+            response = self.client.post('/api/profile/', {'phone': '8 (978) 111-22-33'}, format='json')
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['phone'], '+79781112233')
+            other_device = APIClient(); other_device.credentials(HTTP_AUTHORIZATION=credentials(timestamp=int(time.time())+1))
+            self.assertEqual(other_device.get('/api/session/').data['user']['phone'], '+79781112233')
+            self.assertEqual(Customer.objects.count(), 1)
+            sender.assert_not_called()
+        self.assertEqual(self.client.post('/api/profile/', {'phone': '123'}, format='json').status_code, 400)
+        self.assertEqual(Customer.objects.get().phone, '+79781112233')
+        guest = APIClient()
+        self.assertEqual(guest.post('/api/profile/', {'phone': '+79781112233'}, format='json').status_code, 401)
+        self.assertFalse(Order.objects.exists())
+
+    def test_checkout_commits_before_delivery_and_idempotent_retry_does_not_deliver_twice(self):
+        payload = self.payload()
+        def send(method, data, **kwargs):
+            self.assertTrue(Order.objects.exists())
+            self.assertEqual(OrderNotification.objects.get().status, 'sending')
+            return {'message_id': 101}
+        with patch('storefront.notifications.telegram_call', side_effect=send) as sender:
+            with self.captureOnCommitCallbacks(execute=True):
+                first = self.client.post('/api/orders/', payload, format='json')
+            self.assertEqual(first.status_code, 201, first.data)
+            self.assertEqual(OrderNotification.objects.get().status, 'sent')
+            with self.captureOnCommitCallbacks(execute=True):
+                again = self.client.post('/api/orders/', payload, format='json')
+            self.assertEqual(again.status_code, 200)
+            self.assertEqual(sender.call_count, 1)
+
+    def test_post_commit_delivery_failure_still_returns_saved_order(self):
+        with patch('storefront.notifications.telegram_call', side_effect=DeliveryError('Telegram HTTP 503', retryable=True)):
+            with self.captureOnCommitCallbacks(execute=True):
+                result = self.client.post('/api/orders/', self.payload(), format='json')
+        self.assertEqual(result.status_code, 201, result.data)
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertEqual(OrderNotification.objects.get().status, 'failed')
+
+    def test_partial_delivery_resumes_only_unsent_parts_and_original_group(self):
+        row = self.order().notification
+        OrderNotification.objects.filter(pk=row.pk).update(payload_parts=['first', 'second'], destination='-100002',
+            sent_parts=1, telegram_message_ids=[91])
+        with patch('storefront.notifications.telegram_call', return_value={'message_id': 92}) as sender:
+            self.assertTrue(deliver_one(row.pk))
+        self.assertEqual(sender.call_count, 1)
+        self.assertEqual(sender.call_args.args[1]['text'], 'second')
+        self.assertEqual(sender.call_args.args[1]['chat_id'], '-100002')
+        row.refresh_from_db(); self.assertEqual(row.telegram_message_ids, [91,92])
+
+    def test_uncertain_admin_retry_requires_explicit_chat_check_and_preserves_sent_rows(self):
+        row = self.order().notification
+        OrderNotification.objects.filter(pk=row.pk).update(status='uncertain')
+        user = get_user_model().objects.create_superuser('delivery-admin', password='test-only')
+        model_admin = admin.site._registry[OrderNotification]
+        request = RequestFactory().post('/admin/', {'_selected_action': [row.pk]}); request.user = user
+        with patch('storefront.notifications.telegram_call') as sender:
+            response = model_admin.retry_delivery(request, OrderNotification.objects.filter(pk=row.pk))
+            self.assertEqual(response.status_code, 200)
+            sender.assert_not_called()
+        row.refresh_from_db(); self.assertEqual(row.status, 'uncertain')

@@ -15,7 +15,7 @@ class SingletonModel(models.Model):
 
 
 class StoreProfile(SingletonModel):
-    name = models.CharField('Название магазина', max_length=150, default='Большой Мясной')
+    name = models.CharField('Название магазина', max_length=150, default='Большой Мясной Маркет')
     description = models.TextField('О магазине', blank=True, max_length=2500)
     address = models.CharField('Адрес', max_length=250, default='Севастополь, Камышовое шоссе, 25')
     opening_hours = models.TextField('График работы', blank=True, max_length=1000,
@@ -24,6 +24,7 @@ class StoreProfile(SingletonModel):
         validators=[RegexValidator(r'^\+?[0-9 ()-]{7,20}$', 'Укажите телефон с кодом страны.')])
     telegram_url = models.URLField('Telegram', blank=True)
     vk_url = models.URLField('ВКонтакте', blank=True)
+    instagram_url = models.URLField('Instagram', blank=True)
     email = models.EmailField('Электронная почта', blank=True)
     map_url = models.URLField('Ссылка на карту', blank=True)
     map_embed_url = models.URLField('Встраиваемая карта', max_length=500, blank=True,
@@ -125,12 +126,14 @@ class PantryIngredient(models.Model):
 
 class DinnerQuestion(models.Model):
     KEYS = [('pantry', 'Продукты дома'), ('dish', 'Тип блюда'), ('spice', 'Острота'),
-            ('servings', 'Число порций'), ('preferences', 'Предпочтения'), ('exclude', 'Исключить ингредиенты')]
+            ('servings', 'Число порций'), ('preferences', 'Предпочтения'), ('exclude', 'Исключить ингредиенты'),
+            ('time', 'Время приготовления')]
     key = models.CharField('Назначение вопроса', choices=KEYS, unique=True, max_length=20)
     title = models.CharField('Вопрос', max_length=150)
     help_text = models.CharField('Подсказка', max_length=250, blank=True)
     sort_order = models.PositiveIntegerField('Порядок', default=0)
     is_active = models.BooleanField('Показывать', default=True)
+
     required = models.BooleanField('Обязательный ответ', default=False)
 
     class Meta:
@@ -150,6 +153,9 @@ class DinnerOption(models.Model):
         help_text='Этот ответ не ограничивает рецепты. Для предпочтений используется только явное соответствие рецепту.')
     sort_order = models.PositiveIntegerField('Порядок', default=0)
     is_active = models.BooleanField('Показывать', default=True)
+    max_minutes = models.PositiveSmallIntegerField('Не больше минут', null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(240)],
+        help_text='Только для вопроса о времени. У рецепта должно быть указано время приготовления.')
 
     class Meta:
         ordering = ['sort_order', 'pk']
@@ -161,10 +167,14 @@ class DinnerOption(models.Model):
         return f'{self.question.get_key_display()}: {self.label}'
 
     def clean(self):
-        if self.question_id and self.question.key not in ('dish', 'spice', 'preferences'):
+        if self.question_id and self.question.key not in ('dish', 'spice', 'preferences', 'time'):
             raise ValidationError('У этого вопроса ответы берутся из ингредиентов или числа порций.')
         if self.question_id and self.is_any and self.question.key == 'preferences':
             raise ValidationError({'is_any': 'Для предпочтений задавайте явные соответствия рецептам.'})
+        if self.question_id and self.question.key == 'time' and not self.is_any and not self.max_minutes:
+            raise ValidationError({'max_minutes': 'Укажите максимальное время приготовления.'})
+        if self.max_minutes and self.question_id and (self.question.key != 'time' or self.is_any):
+            raise ValidationError({'max_minutes': 'Ограничение времени относится только к конкретному ответу о времени.'})
 
 
 class DinnerRecipe(models.Model):

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ChevronRight, X } from 'lucide-react';
+import { ChevronRight, LayoutGrid, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCategories, useProducts } from '../hooks/useCatalog';
 import { useResource } from '../hooks/useResource';
@@ -84,10 +84,13 @@ export function CatalogPage() {
               <span>{item.id === 'seafood' ? <>Море&shy;продукты</> : item.name}</span>
             </button>
           ))}
+          <button aria-label="Все категории" onClick={() => sheet.current?.showModal()}>
+            <span className="rp-department-photo retail-all-category-icon">
+              <LayoutGrid size={28} strokeWidth={1.6} />
+            </span>
+            <span>Все категории</span>
+          </button>
         </div>
-        <button className="rp-all-categories" onClick={() => sheet.current?.showModal()}>
-          Посмотреть все категории <ChevronRight size={15} />
-        </button>
       </section>
       {categories.error && (
         <ErrorState compact retry={categories.retry} message={categories.error} />
@@ -124,7 +127,6 @@ export function CatalogPage() {
                     to={`/catalog?collection=${item.slug}`}
                     actionLabel="Смотреть всё"
                   />
-                  {item.description && <p className="retail-subtitle">{item.description}</p>}
                   <div className="rp-products retail-showcase">
                     {item.products.map((product) => (
                       <ProductCard product={product} key={product.id} />
@@ -251,7 +253,7 @@ export function CatalogPage() {
               checked={available}
               onChange={(event) => update('available', event.target.checked ? '1' : '')}
             />
-            Только в наличии
+            Доступные для заявки
           </label>
         </div>
         <button className="button button-primary" onClick={() => sheet.current?.close()}>

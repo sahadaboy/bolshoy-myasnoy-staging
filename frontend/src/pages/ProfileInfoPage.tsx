@@ -2,6 +2,7 @@ import { MapPin, Mail, Phone } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { BackLink } from '../components/Retail';
+import { STORE_BRAND } from '../data/brand';
 
 export default function ProfileInfoPage() {
   const { module } = useParams();
@@ -9,7 +10,7 @@ export default function ProfileInfoPage() {
   const store = data?.store;
   const title =
     module === 'store'
-      ? 'Наш магазин'
+      ? 'О магазине'
       : module === 'contacts'
         ? 'Контакты'
         : module === 'help'
@@ -28,7 +29,7 @@ export default function ProfileInfoPage() {
           <>
             <div className="retail-store-address">
               <MapPin size={26} strokeWidth={1.5} />
-              <strong>Большой Мясной</strong>
+              <strong>{STORE_BRAND}</strong>
               <p>{store?.address || 'Севастополь, Камышовое шоссе, 25'}</p>
             </div>
             {module === 'store' && (
@@ -103,7 +104,7 @@ export default function ProfileInfoPage() {
             <p>
               Каталог магазина, рецепты для вдохновения и заявки на самовывоз в одном приложении.
             </p>
-            <p>Цены и наличие приходят из каталога магазина.</p>
+            <p>Цены и доступность для заявки приходят из каталога магазина.</p>
           </>
         )}
         <Link className="button button-secondary" to="/profile">

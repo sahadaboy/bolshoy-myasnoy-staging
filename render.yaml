@@ -25,6 +25,10 @@ services:
         value: "0"
       - key: TELEGRAM_NOTIFICATIONS_ENABLED
         value: "0"
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        sync: false
+      - key: MINIAPP_WEIGHT_ESTIMATE
+        value: "1"
       - key: MINIAPP_SHOW_DEMO_CONTENT
         value: "0"
       - key: AWS_ENDPOINT_URL_S3

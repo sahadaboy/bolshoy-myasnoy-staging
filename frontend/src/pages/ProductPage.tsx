@@ -48,7 +48,7 @@ export function ProductPage() {
             ))}
           </div>
           <h1>{product.name}</h1>
-          <p className="retail-subtitle">{product.is_available ? 'В наличии' : 'Нет в наличии'}</p>
+          <p className="retail-subtitle">{product.is_available ? 'В каталоге · наличие подтвердит сотрудник' : 'Недоступен для заявки'}</p>
           <p className="retail-detail-price">
             {formatMoney(priceKopecks(product))}
             <span>/{product.unit === 'kg' ? 'кг' : 'шт'}</span>

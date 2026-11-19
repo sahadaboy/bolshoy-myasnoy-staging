@@ -61,7 +61,7 @@ export function CartPage() {
                 {formatMoney(priceKopecks(product))} / {product.unit === 'kg' ? 'кг' : 'шт'}
               </span>
               {!product.is_available && (
-                <span className="retail-unavailable">Нет в наличии · не входит в итог</span>
+                <span className="retail-unavailable">Недоступен для заявки · не входит в итог</span>
               )}
               <div className="retail-cart-controls">
                 <QuantityControl
