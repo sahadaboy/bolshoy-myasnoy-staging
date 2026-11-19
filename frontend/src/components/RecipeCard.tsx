@@ -1,4 +1,4 @@
-import { ImageOff } from 'lucide-react';
+import { ChevronRight, ImageOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { productImageUrl } from '../lib/api';
@@ -44,7 +44,7 @@ export function RecipeCard({
           </span>
           <strong>{article.title}</strong>
           <span>{article.description}</span>
-          <span className="rp-feature-arrow">›</span>
+          <ChevronRight className="rp-feature-arrow" size={20} strokeWidth={1.6} aria-hidden="true" />
         </span>
       ) : variant === 'topic' ? (
         <span>{article.title}</span>
