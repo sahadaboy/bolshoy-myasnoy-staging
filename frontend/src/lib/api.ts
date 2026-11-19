@@ -62,7 +62,11 @@ export async function get<T>(
       ...init,
       signal,
       credentials: 'omit',
-      headers: { Accept: 'application/json', ...privateHeaders(path), ...init?.headers },
+      headers: {
+        Accept: 'application/json',
+        ...privateHeaders(path),
+        ...init?.headers,
+      },
     });
   } catch (error) {
     if (signal?.aborted) throw error;
@@ -114,8 +118,12 @@ export async function get<T>(
               .filter((item) => typeof item === 'string')
           : [];
       throw new ApiError(
-        messages.slice(0, 3).join(' ') ||
-          'Не удалось подобрать ужин. Проверьте ответы и попробуйте ещё раз.',
+        response.status === 401
+          ? 'Вход через Telegram не подтверждён или устарел. Закройте магазин и откройте его из меню бота.'
+          : messages.slice(0, 3).join(' ') ||
+              (path.startsWith('/api/profile/')
+                ? `Не удалось сохранить номер (HTTP ${response.status}). Повторите попытку.`
+                : 'Не удалось выполнить запрос. Проверьте данные и попробуйте ещё раз.'),
         response.status,
         payload,
       );
@@ -123,6 +131,13 @@ export async function get<T>(
     return payload as T;
   } catch (error) {
     if (error instanceof ApiError || signal?.aborted) throw error;
+    if (!response.ok)
+      throw new ApiError(
+        response.status === 401
+          ? 'Вход через Telegram не подтверждён. Закройте магазин и откройте его из меню бота.'
+          : `Сервер не выполнил запрос (HTTP ${response.status}). Повторите попытку.`,
+        response.status,
+      );
     throw new ApiError('Не удалось прочитать данные магазина. Попробуйте ещё раз.');
   } finally {
     reader.releaseLock();
@@ -249,12 +264,28 @@ export const fetchSession = async (signal?: AbortSignal) => {
   await loadTelegramWebApp();
   return get<Session>('/api/session/', signal);
 };
-export const updateCustomerPhone = (phone: string) =>
-  get<{ phone: string }>('/api/profile/', undefined, false, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone }),
-  });
+export async function updateCustomerPhone(phone: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30000);
+  try {
+    const result = await get<{ phone: string }>('/api/profile/', controller.signal, false, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    if (typeof result.phone !== 'string')
+      throw new ApiError('Сервер не подтвердил сохранение номера. Обновите профиль.');
+    return result;
+  } catch (error) {
+    if (controller.signal.aborted)
+      throw new ApiError(
+        'Ответ о сохранении номера задержался. Обновите профиль перед повторной попыткой.',
+      );
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 export interface RepeatPreview {
   items: { product: Product; quantity: string }[];
   unavailable: { name: string; reason: string }[];

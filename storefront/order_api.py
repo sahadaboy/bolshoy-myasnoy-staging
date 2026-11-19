@@ -194,8 +194,10 @@ class OrderListCreateView(PrivateAPI):
                     line.order = order
                 OrderItem.objects.bulk_create(lines)
                 customer.phone = data['phone']; customer.save(update_fields=['phone'])
-                OrderNotification.objects.create(order=order)
+                notification = OrderNotification.objects.create(order=order)
                 OrderStatusEvent.objects.create(order=order, status=Order.Status.NEW)
+                from .notifications import dispatch_after_commit
+                transaction.on_commit(lambda: dispatch_after_commit(notification.pk), robust=True)
             return Response(OrderSerializer(order).data, status=201)
         except IntegrityError:
             existing = repeated_order(request.user.id, data['request_id'], signature)
@@ -224,8 +226,19 @@ class CustomerProfileView(PrivateAPI):
         value = form.validated_data['phone']
         if value != '':
             value = normalize_phone(value)
-        Customer.objects.filter(pk=request.customer.pk).update(phone=value)
-        return Response({'phone': value})
+        # Independent of checkout and Telegram message delivery. Read the saved
+        # value before acknowledging, rather than returning the submitted text.
+        with transaction.atomic():
+            customer = Customer.objects.select_for_update().get(pk=request.customer.pk)
+            customer.phone = value
+            customer.save(update_fields=['phone'])
+            customer.refresh_from_db(fields=['phone'])
+        return Response({'phone': customer.phone})
+
+    def post(self, request):
+        # POST also works through intermediaries that restrict PATCH. Keep PATCH
+        # for already-open older clients; both use the exact same authentication.
+        return self.patch(request)
 
 
 class RepeatOrderView(PrivateAPI):

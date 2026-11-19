@@ -1,5 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Check, ChevronLeft, Clock3, CookingPot, ShoppingBasket, UsersRound } from 'lucide-react';
+import {
+  Check,
+  ChevronLeft,
+  Clock3,
+  CookingPot,
+  ShoppingBasket,
+  UsersRound,
+  Plus,
+  Minus,
+  Flame,
+  Leaf,
+  Wheat,
+  Fish,
+  Utensils,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BackLink } from '../components/Retail';
 import { ErrorState, LoadingGrid } from '../components/States';
@@ -16,7 +32,12 @@ import {
 } from '../lib/quantity';
 import type { DinnerAnswers, DinnerIdea } from '../types';
 
-const initialAnswers: DinnerAnswers = { servings: 2, pantry: [], exclude: [], answers: {} };
+const initialAnswers: DinnerAnswers = {
+  servings: 2,
+  pantry: [],
+  exclude: [],
+  answers: {},
+};
 
 export default function DinnerPage() {
   const resource = useResource(fetchDinnerSchema);
@@ -30,6 +51,7 @@ export default function DinnerPage() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [added, setAdded] = useState(false);
+  const [replacements, setReplacements] = useState<Record<string, number>>({});
   const initialized = useRef(false);
   const pending = useRef<AbortController | null>(null);
   const legend = useRef<HTMLLegendElement>(null);
@@ -47,7 +69,12 @@ export default function DinnerPage() {
         if (any) defaults[item.key] = [any.id];
       }
     }
-    setAnswers({ servings: schema.default_servings, pantry: [], exclude: [], answers: defaults });
+    setAnswers({
+      servings: schema.default_servings,
+      pantry: [],
+      exclude: [],
+      answers: defaults,
+    });
   }, [schema]);
   useEffect(() => () => pending.current?.abort(), []);
   useEffect(() => {
@@ -60,7 +87,7 @@ export default function DinnerPage() {
       : question?.key === 'exclude'
         ? answers.exclude
         : answers.answers[question?.key || ''] || [];
-  const single = question?.key === 'dish' || question?.key === 'spice';
+  const single = question?.key === 'dish' || question?.key === 'spice' || question?.key === 'time';
   const ready =
     question?.key === 'servings'
       ? Number.isInteger(answers.servings) &&
@@ -78,7 +105,10 @@ export default function DinnerPage() {
     setAnswers((previous) =>
       question.key === 'pantry' || question.key === 'exclude'
         ? { ...previous, [question.key]: next }
-        : { ...previous, answers: { ...previous.answers, [question.key]: next } },
+        : {
+            ...previous,
+            answers: { ...previous.answers, [question.key]: next },
+          },
     );
   }
   function goTo(next: number) {
@@ -87,7 +117,7 @@ export default function DinnerPage() {
     setError('');
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
-  async function findIdeas(event?: FormEvent) {
+  async function findIdeas(event?: FormEvent, body = answers) {
     event?.preventDefault();
     if (!ready || pending.current) return;
     if (schema && step < schema.questions.length - 1) {
@@ -101,7 +131,7 @@ export default function DinnerPage() {
     setError('');
     setNotice('');
     try {
-      const response = await suggestDinner(answers, controller.signal);
+      const response = await suggestDinner(body, controller.signal);
       if (controller.signal.aborted) return;
       setResults(response.results);
       setSelected(null);
@@ -126,6 +156,7 @@ export default function DinnerPage() {
       ),
     );
     setAdded(false);
+    setReplacements({});
     setNotice('');
     setError('');
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -136,6 +167,57 @@ export default function DinnerPage() {
     setNotice('');
     setError('');
     goTo(0);
+  }
+  function skip() {
+    if (!question || question.required) return;
+    const any = question.options.find((option) => option.is_any);
+    const next =
+      question.key === 'pantry' || question.key === 'exclude'
+        ? { ...answers, [question.key]: [] }
+        : question.key === 'servings'
+          ? { ...answers, servings: schema?.default_servings || 2 }
+          : {
+              ...answers,
+              answers: {
+                ...answers.answers,
+                [question.key]: any ? [any.id] : [],
+              },
+            };
+    setAnswers(next);
+    void findIdeas(undefined, next);
+  }
+  async function replaceIngredient(ingredientId: number, replacementId: number) {
+    if (!selected || pending.current || added) return;
+    const next = { ...replacements, [ingredientId]: replacementId };
+    const controller = new AbortController();
+    pending.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
+    setBusy(true);
+    setError('');
+    try {
+      const response = await suggestDinner(
+        { ...answers, recipe_id: selected.id, replacements: next },
+        controller.signal,
+      );
+      const idea = response.results.find((item) => item.id === selected.id);
+      if (!idea) throw new Error('Этот вариант сейчас недоступен. Выберите другую идею.');
+      setSelected(idea);
+      setReplacements(next);
+      setQuantities(
+        Object.fromEntries(
+          idea.shopping.map((item) => [
+            item.product.id,
+            quantities[item.product.id] ?? quantityThousandths(item.quantity),
+          ]),
+        ),
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось проверить замену.');
+    } finally {
+      window.clearTimeout(timeout);
+      pending.current = null;
+      setBusy(false);
+    }
   }
   function restart() {
     initialized.current = false;
@@ -161,6 +243,7 @@ export default function DinnerPage() {
       const response = await prepareDinner(
         {
           ...answers,
+          replacements,
           recipe_id: selected.id,
           items: toBuy.map((item) => ({
             product_id: item.product.id,
@@ -227,29 +310,57 @@ export default function DinnerPage() {
         <form className="retail-dinner-form" onSubmit={findIdeas}>
           {question ? (
             <>
-              <p className="retail-question-progress">
-                Вопрос {step + 1} из {schema.questions.length}
-              </p>
-              <fieldset disabled={busy}>
+              <div className="dinner-progress">
+                <span>
+                  {step + 1} / {schema.questions.length}
+                </span>
+                <progress
+                  aria-label="Прогресс подбора ужина"
+                  value={step + 1}
+                  max={schema.questions.length}
+                />
+              </div>
+              <fieldset disabled={busy} key={question.key} className="dinner-step">
                 <legend ref={legend} tabIndex={-1}>
                   {question.title}
                 </legend>
                 {question.help_text && <p className="retail-subtitle">{question.help_text}</p>}
                 {question.key === 'servings' ? (
-                  <label className="retail-servings">
-                    Человек
-                    <input
-                      type="number"
-                      min="1"
-                      max={schema.max_servings}
-                      step="1"
-                      value={answers.servings || ''}
-                      onChange={(event) =>
-                        setAnswers({ ...answers, servings: Number(event.target.value) })
-                      }
-                      required
-                    />
-                  </label>
+                  <div className="dinner-servings">
+                    <UsersRound size={28} strokeWidth={1.5} aria-hidden="true" />
+                    <div role="group" aria-label="Количество человек">
+                      <button
+                        type="button"
+                        aria-label="На одного меньше"
+                        disabled={answers.servings <= 1}
+                        onClick={() =>
+                          setAnswers({
+                            ...answers,
+                            servings: Math.max(1, answers.servings - 1),
+                          })
+                        }
+                      >
+                        <Minus size={20} />
+                      </button>
+                      <output aria-live="polite" aria-label="Человек">
+                        {answers.servings}
+                      </output>
+                      <button
+                        type="button"
+                        aria-label="На одного больше"
+                        disabled={answers.servings >= schema.max_servings}
+                        onClick={() =>
+                          setAnswers({
+                            ...answers,
+                            servings: Math.min(schema.max_servings, answers.servings + 1),
+                          })
+                        }
+                      >
+                        <Plus size={20} />
+                      </button>
+                    </div>
+                    <small>От 1 до {schema.max_servings} человек. Пересчитаем ингредиенты.</small>
+                  </div>
                 ) : (
                   <>
                     {(question.key === 'pantry' || question.key === 'exclude') && (
@@ -281,13 +392,35 @@ export default function DinnerPage() {
                             checked={choices.includes(item.id)}
                             onChange={() => toggle(item.id)}
                           />
+                          <span className="dinner-choice-icon" aria-hidden="true">
+                            {question.key === 'time' ? (
+                              <Clock3 size={21} />
+                            ) : question.key === 'spice' ? (
+                              <Flame size={21} />
+                            ) : question.key === 'exclude' ? (
+                              <X size={21} />
+                            ) : 'value' in item && item.value.includes('pasta') ? (
+                              <Wheat size={21} />
+                            ) : 'value' in item && item.value.includes('fish') ? (
+                              <Fish size={21} />
+                            ) : question.key === 'preferences' ? (
+                              <Leaf size={21} />
+                            ) : question.key === 'dish' ? (
+                              <Utensils size={21} />
+                            ) : (
+                              <ShoppingBasket size={21} />
+                            )}
+                          </span>
                           <span>{'label' in item ? item.label : item.name}</span>
+                          <Check size={17} className="dinner-choice-check" aria-hidden="true" />
                         </label>
                       ))}
                     </div>
                     {(question.key === 'pantry' || question.key === 'exclude') &&
                       !question.required && (
-                        <p className="retail-subtitle">Можно ничего не выбирать.</p>
+                        <p className="retail-subtitle">
+                          Выберите несколько или пропустите этот шаг.
+                        </p>
                       )}
                   </>
                 )}
@@ -305,6 +438,16 @@ export default function DinnerPage() {
                 onClick={() => goTo(step - 1)}
               >
                 <ChevronLeft size={17} /> Назад
+              </button>
+            )}
+            {question && !question.required && question.key !== 'servings' && (
+              <button
+                type="button"
+                className="retail-text-link dinner-skip"
+                disabled={busy}
+                onClick={skip}
+              >
+                Пропустить
               </button>
             )}
             <button className="button button-primary" type="submit" disabled={busy || !ready}>
@@ -330,6 +473,9 @@ export default function DinnerPage() {
             <ChevronLeft size={16} /> Другие варианты
           </button>
           <h2>{selected.title}</h2>
+          {selected.image && (
+            <img className="dinner-photo" src={selected.image} alt={selected.title} />
+          )}
           <p>{selected.description}</p>
           <div className="retail-article-meta">
             <span>
@@ -369,6 +515,32 @@ export default function DinnerPage() {
           </section>
           <section>
             <h3>Что докупить</h3>
+            <p className="dinner-stock-note">
+              Товары есть в каталоге. Остаток и фактический вес подтвердит сотрудник.
+            </p>
+            {selected.ingredients
+              .filter((item) => item.alternatives.length > 1)
+              .map((item) => (
+                <label key={item.id} className="dinner-replacement">
+                  <span>
+                    <SlidersHorizontal size={16} aria-hidden="true" /> {item.name}: выбрать товар
+                  </span>
+                  <select
+                    aria-label={`Товар для ингредиента «${item.name}»`}
+                    value={item.replacement_id}
+                    disabled={busy || added}
+                    onChange={(event) =>
+                      void replaceIngredient(item.id, Number(event.target.value))
+                    }
+                  >
+                    {item.alternatives.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.product.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
             {selected.shopping.length ? (
               <>
                 <div className="retail-dinner-shopping">
@@ -458,6 +630,11 @@ export default function DinnerPage() {
               ))}
             </ol>
           </section>
+          {selected.notes && <p className="dinner-recipe-note">{selected.notes}</p>}
+          <p className="dinner-stock-note">
+            Исключения учитывают ингредиенты рецепта. Состав и возможные следы аллергенов проверьте
+            на упаковке каждого товара.
+          </p>
           <Link className="retail-text-link" to={`/ideas/article/${selected.slug}`}>
             Открыть рецепт
           </Link>
@@ -476,7 +653,11 @@ export default function DinnerPage() {
           )}
           {results.map((idea) => (
             <article key={idea.id}>
-              <CookingPot size={24} strokeWidth={1.5} />
+              {idea.image ? (
+                <img className="dinner-photo" src={idea.image} alt={idea.title} loading="lazy" />
+              ) : (
+                <CookingPot size={24} strokeWidth={1.5} />
+              )}
               <h3>{idea.title}</h3>
               <p>{idea.description}</p>
               <div className="retail-article-meta">

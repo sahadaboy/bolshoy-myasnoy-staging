@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { ChevronRight, Clock3, MapPin, Phone } from 'lucide-react';
+import { ChevronRight, Clock3, Instagram, MapPin, Phone } from 'lucide-react';
+import { STORE_BRAND } from '../data/brand';
+import { openExternal } from '../lib/external';
 import { Link } from 'react-router-dom';
 import { BackLink } from '../components/Retail';
 import { ErrorState, LoadingGrid } from '../components/States';
@@ -80,7 +82,7 @@ export default function AboutPage() {
               )}
             </section>
           )}
-          <h2>{data.name}</h2>
+          <h2>{data.name === 'Большой Мясной' ? STORE_BRAND : data.name}</h2>
           <div className="store-description">
             {data.description
               .split(/\n\s*\n/)
@@ -133,19 +135,38 @@ export default function AboutPage() {
                 {phone}
               </a>
             )}
-            <div className="store-socials">
+            <div className="store-socials" aria-label="Мы в социальных сетях">
               {data.telegram_url && (
-                <a href={data.telegram_url} target="_blank" rel="noopener noreferrer">
+                <a
+                  aria-label="Магазин в Telegram"
+                  href={data.telegram_url}
+                  onClick={(event) => openExternal(event, data.telegram_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <img src="/brand/telegram.svg" alt="" width="24" height="24" />
-                  <span>Написать нам в Telegram</span>
-                  <ChevronRight size={17} />
                 </a>
               )}
               {data.vk_url && (
-                <a href={data.vk_url} target="_blank" rel="noopener noreferrer">
+                <a
+                  aria-label="Магазин ВКонтакте"
+                  href={data.vk_url}
+                  onClick={(event) => openExternal(event, data.vk_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <img src="/brand/vk.svg" alt="" width="24" height="24" />
-                  <span>Мы ВКонтакте</span>
-                  <ChevronRight size={17} />
+                </a>
+              )}
+              {data.instagram_url && (
+                <a
+                  aria-label="Магазин в Instagram"
+                  href={data.instagram_url}
+                  onClick={(event) => openExternal(event, data.instagram_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Instagram size={24} strokeWidth={1.8} aria-hidden="true" />
                 </a>
               )}
             </div>

@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.utils.html import format_html
 from .models import Banner, CategoryImage, ProductCollection, ProductCollectionItem, IdeaCategory, Article, Ingredient, RecipeStep, ArticleMember
-from .models import Order, OrderItem
+from .models import Order, OrderItem, IngredientAlternative
 from .models import Customer, OrderStatusEvent, OrderNotification
 from .customers import normalize_phone
 from .models import StoreProfile, StorePhoto, DinnerSettings, DinnerQuestion, DinnerOption, PantryIngredient, DinnerRecipe
@@ -55,8 +55,25 @@ class IngredientInline(admin.StackedInline):
     model = Ingredient
     autocomplete_fields = ['product', 'ingredient_type']
     fields = [('name', 'amount'), ('ingredient_type', 'product'), ('recipe_quantity', 'recipe_unit'),
+              ('amount_value', 'amount_unit', 'pack_size'),
               ('purchase_quantity', 'is_optional', 'sort_order')]
+    show_change_link = True
     extra = 0
+
+
+class AlternativeInline(admin.TabularInline):
+    model = IngredientAlternative
+    autocomplete_fields = ['product']
+    extra = 0
+
+
+@admin.register(Ingredient)
+class IngredientAdmin(admin.ModelAdmin):
+    list_display = ['name', 'article', 'amount_value', 'amount_unit', 'product']
+    list_filter = ['article', 'amount_unit']
+    search_fields = ['name', 'article__title', 'product__name']
+    autocomplete_fields = ['article', 'product', 'ingredient_type']
+    inlines = [AlternativeInline]
 
 
 class StepInline(admin.TabularInline):
@@ -102,7 +119,7 @@ class SingletonAdmin(admin.ModelAdmin):
 class StoreProfileAdmin(SingletonAdmin):
     inlines = [PhotoInline]
     fieldsets = [('Магазин', {'fields': ['name', 'description', 'address', 'opening_hours']}),
-                 ('Связь', {'fields': ['phone', 'telegram_url', 'vk_url', 'email', 'map_url', 'map_embed_url']})]
+                 ('Связь', {'fields': ['phone', 'telegram_url', 'vk_url', 'instagram_url', 'email', 'map_url', 'map_embed_url']})]
 
 
 @admin.register(StorePhoto)
@@ -264,12 +281,46 @@ class OrderNotificationAdmin(admin.ModelAdmin):
     list_display = ['order', 'status', 'attempts', 'created_at', 'sent_at']
     list_filter = ['status']
     readonly_fields = [field.name for field in OrderNotification._meta.fields]
-    actions = ['retry_delivery']
+    actions = ['send_pending', 'retry_delivery']
 
-    @admin.action(description='Повторить доставку (для спорных отправок сначала проверьте чат)')
+    def deliver_selected(self, request, ids):
+        from django.conf import settings
+        from .notifications import dispatch_after_commit
+        if not settings.TELEGRAM_NOTIFICATIONS_ENABLED:
+            self.message_user(request, 'Уведомления выключены в серверных настройках.', messages.WARNING)
+            return
+        if len(ids) > 1:
+            self.message_user(request, 'Выберите одно уведомление: отправка выполняется сразу, без фонового процесса.', messages.WARNING)
+            return
+        sent = sum(dispatch_after_commit(pk) for pk in ids)
+        self.message_user(request, f'Доставлено: {sent}. Подробности — в статусе уведомления.', messages.SUCCESS if sent else messages.WARNING)
+
+    @admin.action(description='Отправить выбранное уведомление из очереди сейчас', permissions=['change'])
+    def send_pending(self, request, queryset):
+        self.deliver_selected(request, list(queryset.filter(status='pending').values_list('pk', flat=True)[:2]))
+
+    @admin.action(description='Повторить доставку (для спорных отправок сначала проверьте чат)', permissions=['change'])
     def retry_delivery(self, request, queryset):
-        count = queryset.filter(status__in=['failed', 'uncertain']).update(status='pending', next_attempt_at=timezone.now(), lease_until=None, claim_id=None)
-        self.message_user(request, f'Поставлено в очередь: {count}. Требуется работающий процесс доставки.', messages.SUCCESS)
+        from django.conf import settings
+        from .notifications import recover_abandoned
+        if not settings.TELEGRAM_NOTIFICATIONS_ENABLED:
+            self.message_user(request, 'Уведомления выключены в серверных настройках.', messages.WARNING)
+            return
+        recover_abandoned()
+        ids = list(queryset.filter(status__in=['failed', 'uncertain']).values_list('pk', flat=True)[:2])
+        if len(ids) > 1:
+            self.message_user(request, 'Для повтора выберите одно уведомление и предварительно проверьте чат.', messages.WARNING)
+            return
+        if queryset.filter(pk__in=ids, status='uncertain').exists() and request.POST.get('confirm_delivery_checked') != 'yes':
+            from django.template.response import TemplateResponse
+            return TemplateResponse(request, 'admin/storefront/retry_notification.html', {
+                **self.admin_site.each_context(request), 'title': 'Проверьте доставку перед повтором',
+                'rows': queryset.filter(pk__in=ids), 'opts': self.model._meta,
+                'action_checkbox_name': admin.helpers.ACTION_CHECKBOX_NAME})
+        # Acknowledged message parts and the original destination are retained.
+        queryset.filter(pk__in=ids, status__in=['failed', 'uncertain']).update(
+            status='pending', next_attempt_at=timezone.now(), lease_until=None, claim_id=None)
+        self.deliver_selected(request, ids)
 
     def has_add_permission(self, request):
         return False

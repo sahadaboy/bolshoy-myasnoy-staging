@@ -104,6 +104,8 @@ class DinnerFlowTests(TestCase):
         self.assertEqual(len(response.data['results']), 1)
         hot = DinnerOption.objects.create(question=self.mild.question, label='Острое', value='hot')
         self.assertEqual(self.suggest(answers={'spice': [hot.pk]}).data['results'], [])
+        self.rule.options.add(hot)
+        self.assertEqual(self.suggest(answers={'spice': [self.mild.pk]}).data['results'], [])
 
     def test_multiple_matching_ideas_are_returned_with_owned_ingredients_prioritized(self):
         second = Article.objects.create(title='Другой ужин', slug='second', servings=2, is_published=True)
@@ -156,6 +158,55 @@ class DinnerFlowTests(TestCase):
         self.pasta.is_available = True; self.pasta.save()
         self.article.is_published = False; self.article.save()
         self.assertEqual(self.client.post('/api/dinner/prepare/', self.preparation(), format='json').status_code, 409)
+
+    def test_physical_recipe_measures_scale_without_fractional_pack_display_or_rounding_down(self):
+        item = self.pasta_ingredient
+        item.amount_value, item.amount_unit, item.pack_size = Decimal('200'), 'g', Decimal('500')
+        item.save()
+        result = self.suggest(servings=6).data['results'][0]
+        self.assertEqual(result['ingredients'][0]['amount'], '600 г')
+        self.assertEqual(result['shopping'][0]['quantity'], '2.000')
+        detail = self.client.get('/api/ideas/dinner/').data['ingredients'][0]
+        self.assertEqual(detail['amount'], '200 г')
+        self.assertEqual(detail['cart_quantity'], '1')
+
+    def test_time_limit_requires_known_recipe_duration_and_is_not_a_recipe_tag(self):
+        question = DinnerQuestion.objects.create(key='time', title='Время')
+        limit = DinnerOption.objects.create(question=question, label='30 минут', value='30', max_minutes=30)
+        self.assertEqual(self.suggest(answers={'time':[limit.pk]}).data['results'], [])
+        self.article.duration_minutes = 30; self.article.save()
+        self.assertEqual(len(self.suggest(answers={'time':[limit.pk]}).data['results']), 1)
+        self.article.duration_minutes = 31; self.article.save()
+        self.assertEqual(self.suggest(answers={'time':[limit.pk]}).data['results'], [])
+
+    def test_only_reviewed_replacement_can_be_selected_and_prepared(self):
+        from .models import IngredientAlternative
+        item = self.pasta_ingredient
+        item.amount_value, item.amount_unit, item.pack_size = Decimal('200'), 'g', Decimal('500')
+        item.save()
+        smaller = Product.objects.create(name='Другая паста 250 г', sku='reviewed', price='70', unit='pcs')
+        option = IngredientAlternative.objects.create(ingredient=item, product=smaller, pack_size=250, sale_unit='pcs', is_active=True)
+        replacements = {str(item.pk):option.pk}
+        result = self.suggest(recipe_id=self.rule.pk, replacements=replacements, servings=6)
+        self.assertEqual(result.status_code,200,result.data)
+        idea = result.data['results'][0]
+        self.assertEqual(idea['shopping'][0]['product']['id'], smaller.pk)
+        self.assertEqual(idea['shopping'][0]['quantity'], '3.000')
+        prepared = self.client.post('/api/dinner/prepare/', self.payload(recipe_id=self.rule.pk, servings=6, replacements=replacements,
+            items=[{'product_id':smaller.pk,'quantity':'3','expected_price':'70'}]),format='json')
+        self.assertEqual(prepared.status_code,200,prepared.data)
+        self.assertEqual(self.suggest(recipe_id=self.rule.pk, replacements={str(item.pk):99999}).status_code,409)
+        self.assertEqual(self.suggest(recipe_id=self.rule.pk, replacements={'99999':option.pk}).status_code,400)
+        smaller.is_available=False; smaller.save()
+        self.assertEqual(self.suggest(recipe_id=self.rule.pk,replacements=replacements).status_code,409)
+
+    def test_physical_conversion_is_blocked_when_catalogue_sales_unit_changes(self):
+        item = self.pasta_ingredient
+        item.amount_value, item.amount_unit, item.pack_size = Decimal('200'), 'g', Decimal('500')
+        item.save()
+        self.pasta.unit='kg'; self.pasta.save()
+        self.assertEqual(self.suggest().data['results'], [])
+        self.assertIsNone(self.client.get('/api/ideas/dinner/').data['ingredients'][0]['cart_quantity'])
 
 
 class StoreAndShowcaseTests(TestCase):

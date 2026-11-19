@@ -99,13 +99,14 @@ export interface StoreProfile {
   phone: string;
   telegram_url: string;
   vk_url: string;
+  instagram_url: string;
   email: string;
   map_url: string;
   map_embed_url: string;
   photos: { id: number; image: string; caption: string; alt_text: string }[];
 }
 export type DinnerQuestionKey =
-  'pantry' | 'dish' | 'spice' | 'servings' | 'preferences' | 'exclude';
+  'pantry' | 'dish' | 'spice' | 'servings' | 'preferences' | 'exclude' | 'time';
 export interface DinnerSchema {
   enabled: boolean;
   title: string;
@@ -118,7 +119,7 @@ export interface DinnerSchema {
     title: string;
     help_text: string;
     required: boolean;
-    options: { id: number; label: string; is_any: boolean }[];
+    options: { id: number; label: string; value: string; is_any: boolean }[];
   }[];
 }
 export interface DinnerAnswers {
@@ -126,12 +127,16 @@ export interface DinnerAnswers {
   pantry: number[];
   exclude: number[];
   answers: Record<string, number[]>;
+  recipe_id?: number;
+  replacements?: Record<string, number>;
 }
 export interface DinnerIdea {
   id: number;
   slug: string;
   title: string;
   description: string;
+  image: string | null;
+  notes: string;
   servings: number;
   duration_minutes: number | null;
   steps: string[];
@@ -144,6 +149,8 @@ export interface DinnerIdea {
     amount: string;
     have: boolean;
     optional: boolean;
+    replacement_id: number;
+    alternatives: { id: number; product: Product }[];
     status: 'owned' | 'buy' | 'optional_unavailable';
   }[];
   shopping: { product: Product; quantity: string; ingredient_ids: number[] }[];

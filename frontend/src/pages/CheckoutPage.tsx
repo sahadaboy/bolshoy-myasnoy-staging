@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { MapPin } from 'lucide-react';
+import { ChevronDown, MapPin } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSession } from '../context/SessionContext';
@@ -70,7 +70,10 @@ export default function CheckoutPage() {
       cart.clear();
       finishOrderRequest();
       session.retry();
-      navigate(`/profile/orders/${order.id}`, { replace: true, state: { created: true } });
+      navigate(`/profile/orders/${order.id}`, {
+        replace: true,
+        state: { created: true },
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить заявку.');
       if (reason instanceof ApiError && (reason.status === 409 || reason.status === 400))
@@ -102,10 +105,14 @@ export default function CheckoutPage() {
               <strong>Забрать в магазине</strong>
               <p>{session.data?.store.address || 'Севастополь, Камышовое шоссе, 25'}</p>
               <span>Без доставки и онлайн-оплаты</span>
+              <span>Наличие подтвердит сотрудник после получения заявки.</span>
             </div>
           </div>
           <details className="retail-order-composition" open>
-            <summary>Состав заявки · {cart.itemCount} поз.</summary>
+            <summary>
+              <span>Состав заявки · {cart.itemCount} поз.</span>
+              <ChevronDown className="order-chevron" size={19} aria-hidden="true" />
+            </summary>
             <ul>
               {cart.items.map(({ product, quantity }) => (
                 <li key={product.id}>

@@ -2,13 +2,18 @@ import { lazy, useEffect, useLayoutEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { STORE_BRAND } from './data/brand';
 import { useTelegram } from './hooks/useTelegram';
 
 const CatalogPage = lazy(() =>
-  import('./pages/CatalogPage').then((module) => ({ default: module.CatalogPage })),
+  import('./pages/CatalogPage').then((module) => ({
+    default: module.CatalogPage,
+  })),
 );
 const ProductPage = lazy(() =>
-  import('./pages/ProductPage').then((module) => ({ default: module.ProductPage })),
+  import('./pages/ProductPage').then((module) => ({
+    default: module.ProductPage,
+  })),
 );
 const CartPage = lazy(() =>
   import('./pages/CartPage').then((module) => ({ default: module.CartPage })),
@@ -19,10 +24,14 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const ProfileInfoPage = lazy(() => import('./pages/ProfileInfoPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const OrdersPage = lazy(() =>
-  import('./pages/OrdersPage').then((module) => ({ default: module.OrdersPage })),
+  import('./pages/OrdersPage').then((module) => ({
+    default: module.OrdersPage,
+  })),
 );
 const OrderPage = lazy(() =>
-  import('./pages/OrdersPage').then((module) => ({ default: module.OrderPage })),
+  import('./pages/OrdersPage').then((module) => ({
+    default: module.OrderPage,
+  })),
 );
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const StoreMapPage = lazy(() => import('./pages/StoreMapPage'));
@@ -64,7 +73,7 @@ export default function App() {
                 : pathname.startsWith('/product/')
                   ? 'Товар'
                   : 'Каталог';
-    document.title = `${title} — Большой Мясной`;
+    document.title = `${title} — ${STORE_BRAND}`;
   }, [pathname]);
   return (
     <>

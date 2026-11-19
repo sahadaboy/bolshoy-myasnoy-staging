@@ -83,10 +83,17 @@ class ArticleCardSerializer(serializers.ModelSerializer):
 class IngredientSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
     cart_quantity = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
 
     class Meta:
         model = Ingredient
         fields = ['id', 'name', 'amount', 'product', 'cart_quantity']
+
+    def get_amount(self, obj):
+        if obj.amount_value is not None:
+            from .dinner import ingredient_amount
+            return ingredient_amount(obj, obj.article.servings or 1, obj.article.servings or 1)[1]
+        return obj.amount
 
     def get_product(self, obj):
         return ProductSerializer(obj.product, context=self.context).data if obj.product and obj.product.is_active else None
@@ -96,6 +103,11 @@ class IngredientSerializer(serializers.ModelSerializer):
             return None
         if obj.recipe_unit and obj.recipe_unit != obj.product.unit:
             return None
+        if obj.amount_value is not None:
+            from .dinner import ingredient_amount, purchase_quantity
+            needed, _ = ingredient_amount(obj, obj.article.servings or 1, obj.article.servings or 1)
+            quantity = purchase_quantity(obj.product, needed) if needed is not None else None
+            return str(quantity) if quantity is not None else None
         quantity = obj.purchase_quantity if obj.purchase_quantity is not None else obj.product.min_quantity
         return str(quantity) if valid_quantity(obj.product, quantity) else None
 

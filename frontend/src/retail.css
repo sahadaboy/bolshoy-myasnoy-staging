@@ -1,4 +1,10 @@
 /* Production screens share the approved preview's tokens and proportions. */
+html:has(.retail) {
+  scroll-padding-block: 16px calc(88px + var(--app-safe-bottom, 0px));
+}
+.retail :is(input, textarea, select, button) {
+  scroll-margin-block: 12px;
+}
 .retail .rp-nav .retail-nav-parent {
   color: var(--rp-red);
 }
@@ -836,6 +842,190 @@
 }
 .retail-answer-list label.is-selected {
   border-color: var(--rp-red);
+}
+
+.dinner-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 22px;
+  color: var(--rp-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.dinner-progress progress {
+  appearance: none;
+  border: 0;
+  height: 4px;
+  flex: 1;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--rp-surface);
+}
+.dinner-progress progress::-webkit-progress-bar {
+  background: var(--rp-surface);
+}
+.dinner-progress progress::-webkit-progress-value {
+  background: var(--rp-red);
+  transition: width 0.2s ease;
+  border-radius: 4px;
+}
+.dinner-progress progress::-moz-progress-bar {
+  background: var(--rp-red);
+}
+.dinner-step {
+  animation: dinner-step-in 0.18s ease-out;
+}
+.retail-dinner-form legend:focus {
+  outline: none;
+}
+@keyframes dinner-step-in {
+  from {
+    opacity: 0.3;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dinner-step .retail-answer-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.dinner-step .retail-answer-list label {
+  position: relative;
+  cursor: pointer;
+  min-height: 84px;
+  padding: 12px;
+  gap: 9px;
+  flex-wrap: wrap;
+  align-content: center;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.dinner-step .retail-answer-list label.is-selected {
+  background: #fcf1ef;
+}
+.dinner-step .retail-answer-list label:focus-within {
+  outline: 2px solid var(--rp-red);
+  outline-offset: 3px;
+}
+.dinner-step .retail-answer-list input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.dinner-choice-icon {
+  color: var(--rp-red);
+  display: flex;
+}
+.dinner-step .retail-answer-list label > span:not(.dinner-choice-icon) {
+  flex: 1;
+  min-width: 60px;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.dinner-choice-check {
+  opacity: 0;
+  width: 16px;
+  flex: none;
+  color: var(--rp-red);
+}
+.is-selected .dinner-choice-check {
+  opacity: 1;
+}
+.dinner-servings {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  padding: 26px 0 18px;
+  color: var(--rp-red);
+}
+.dinner-servings > div {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  color: var(--rp-ink);
+}
+.dinner-servings button {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--rp-line);
+  border-radius: 50%;
+  background: var(--rp-surface);
+}
+.dinner-servings button:disabled {
+  opacity: 0.35;
+}
+.dinner-servings output {
+  min-width: 42px;
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.dinner-servings small {
+  color: var(--rp-muted);
+  font-size: 12px;
+  text-align: center;
+}
+.retail-question-actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.dinner-skip {
+  padding: 10px 0;
+  font-size: 12px;
+}
+.dinner-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+.dinner-stock-note,
+.dinner-recipe-note {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--rp-muted);
+}
+.dinner-replacement {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.dinner-replacement > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dinner-replacement select {
+  min-height: 44px;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--rp-line);
+  border-radius: 10px;
+  background: white;
+  padding: 10px 30px 10px 10px;
+  font: inherit;
+  text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dinner-step {
+    animation: none;
+  }
+  .dinner-progress progress::-webkit-progress-value {
+    transition: none;
+  }
 }
 .retail-answer-list input,
 .retail-dinner-shopping input {
@@ -1676,5 +1866,93 @@
   .store-gallery-dots span,
   .store-socials a {
     transition: none;
+  }
+}
+/* Refinements within the existing retail palette and type scale. */
+.retail .rp-departments {
+  margin-bottom: 12px;
+}
+.retail .rp-primary-categories > button > span:last-child {
+  min-height: 30px;
+}
+.retail-all-category-icon {
+  display: grid;
+  place-items: center;
+  color: var(--rp-red);
+  background: var(--rp-surface);
+}
+.retail .store-socials {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 14px;
+}
+.retail .store-socials a {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  width: 48px;
+  padding: 0;
+  border: 0;
+}
+.retail .store-socials img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.retail .customer-avatar-frame {
+  width: 58px;
+  height: 58px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: 0 0 58px;
+}
+.retail .customer-avatar-frame .customer-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.retail-user-card > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.retail .retail-order-composition > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+}
+.retail-order-composition > summary::marker {
+  content: '';
+}
+.retail-order-composition > summary::-webkit-details-marker {
+  display: none;
+}
+.retail-order-composition .order-chevron {
+  flex: none;
+  transform: rotate(-90deg);
+  transition: transform 0.18s ease;
+}
+.retail-order-composition[open] .order-chevron {
+  transform: rotate(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .retail-order-composition .order-chevron {
+    transition: none;
+  }
+}
+@media (max-width: 600px) {
+  /* iOS zooms focused text fields below 16px, disrupting the Mini App viewport. */
+  .retail input:not([type='checkbox']):not([type='radio']),
+  .retail textarea,
+  .retail select {
+    font-size: 16px;
   }
 }

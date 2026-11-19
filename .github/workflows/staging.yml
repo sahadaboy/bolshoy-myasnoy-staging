@@ -1,7 +1,7 @@
 name: staging
 on:
   push:
-    branches: [staging]
+    branches: [staging, "feature/retail-orders-*"]
   pull_request:
     branches: [staging]
 permissions:
@@ -32,6 +32,13 @@ jobs:
       - run: python deploy/check_release.py
       - run: pip install -r requirements-staging.txt
       - run: python manage.py test shop storefront deploy --noinput
+      - run: python manage.py makemigrations --check --dry-run --settings=config.settings_build
+      - name: Collect Django static files for manifest-backed tests
+        run: python manage.py collectstatic --noinput --settings=config.settings_build
+      - name: Account, order and recipe tests on isolated PostgreSQL
+        run: python manage.py test storefront.test_accounts storefront.test_experience storefront.test_recipe_refinement storefront.test_order_chat storefront.test_order_concurrency --settings=config.settings_ci --noinput
+        env:
+          STAGING_TEST_POSTGRES_URL: postgresql://fixture:ci-only-not-a-real-secret@localhost:5432/bm_transfer_ci
       - run: python deploy/test_postgres.py
         env:
           STAGING_TEST_POSTGRES_URL: postgresql://fixture:ci-only-not-a-real-secret@localhost:5432/bm_transfer_ci

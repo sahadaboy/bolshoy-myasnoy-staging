@@ -39,10 +39,17 @@ CSRF_TRUSTED_ORIGINS = [f'https://{host}' for host in ALLOWED_HOSTS]
 if not MINIAPP_PUBLIC_URL and render_host:
     MINIAPP_PUBLIC_URL = f'https://{render_host}'
 
-# Deliberately cannot be switched on by an inherited local .env or dashboard typo.
-MINIAPP_ORDERS_ENABLED = False
-TELEGRAM_NOTIFICATIONS_ENABLED = False
+# Old releases ignored both flags, so inherited values must not open checkout
+# on deployment. The new staging launch gate requires an explicit owner opt-in.
+pickup_launch_enabled = os.environ.get('STAGING_PICKUP_ENABLED', '0') == '1'
+MINIAPP_ORDERS_ENABLED = pickup_launch_enabled and os.environ.get('MINIAPP_ORDERS_ENABLED', '0') == '1'
+TELEGRAM_NOTIFICATIONS_ENABLED = pickup_launch_enabled and os.environ.get('TELEGRAM_NOTIFICATIONS_ENABLED', '0') == '1'
+if TELEGRAM_NOTIFICATIONS_ENABLED and (not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID):
+    raise ImproperlyConfigured('Notification delivery requires the server bot token and TELEGRAM_ADMIN_CHAT_ID.')
 MINIAPP_SHOW_DEMO_CONTENT = False
+# The store has no transactional email feature. Keep the intentional dummy
+# mailer; acknowledge only this deployment check rather than enabling fake SMTP.
+SILENCED_SYSTEM_CHECKS = [*globals().get('SILENCED_SYSTEM_CHECKS', []), 'mail.E001']
 ROOT_URLCONF = 'config.urls_staging'
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

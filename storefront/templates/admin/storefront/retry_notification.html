@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Telegram не подтвердил результат предыдущей отправки. Откройте исходную группу и найдите сообщение по номеру заказа. Повторять следует только недоставленное сообщение.</p>
+<form method="post">{% csrf_token %}
+  {% for row in rows %}
+    <p><strong>{{ row.order.number }}</strong> — {{ row.get_status_display }}. Исходный чат: {{ row.destination }}. Подтверждено частей: {{ row.sent_parts }}. ID подтверждённых сообщений: {{ row.telegram_message_ids }}.</p>
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ row.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="retry_delivery">
+  <label><input type="checkbox" name="confirm_delivery_checked" value="yes" required> Я проверил исходную группу. Неподтверждённая часть сообщения не доставлена.</label>
+  <p><input type="submit" value="Повторить неполученную часть"> <a href="../">Отмена</a></p>
+</form>
+{% endblock %}
