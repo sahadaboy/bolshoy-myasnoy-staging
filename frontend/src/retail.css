@@ -772,11 +772,19 @@ html:has(.retail) {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 0;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.retail-hours > .is-today {
+  background: var(--rp-red);
+  color: white;
 }
 .retail-hours dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .retail .retail-text-link {
   display: inline-flex;

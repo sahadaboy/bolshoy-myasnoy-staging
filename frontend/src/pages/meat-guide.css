@@ -1,0 +1,167 @@
+.meat-guide h2 {
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.meat-guide h2[tabindex='-1']:focus {
+  outline: none;
+}
+.meat-guide-context {
+  color: var(--rp-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 8px 0 16px;
+}
+.meat-guide-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.meat-guide-choices button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 98px;
+  padding: 14px 12px;
+  text-align: left;
+  border: 1px solid var(--rp-line);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  transition:
+    background 0.14s,
+    border-color 0.14s;
+}
+.meat-guide-choices button > svg {
+  flex: none;
+  color: var(--rp-red);
+}
+.meat-guide-choices button > span {
+  padding-right: 2px;
+  overflow-wrap: anywhere;
+}
+.meat-guide-choices button[aria-pressed='true'],
+.meat-guide-choices button:active {
+  background: #fcf1ef;
+  border-color: var(--rp-red);
+}
+.meat-guide-choices button:disabled {
+  opacity: 1;
+}
+.meat-guide-choices .meat-choice-check {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+}
+.meat-guide-result > h2 {
+  font-size: 28px;
+  margin: 4px 0 14px;
+  letter-spacing: -0.6px;
+  overflow-wrap: anywhere;
+}
+.meat-guide-result > p:not(.meat-guide-context) {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.meat-guide-result .meat-result-eyebrow {
+  color: var(--rp-muted);
+  font-size: 12px;
+  margin: 0;
+}
+.meat-guide-time {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0;
+  color: var(--rp-muted);
+}
+.meat-result-block {
+  border-top: 1px solid var(--rp-line);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.meat-result-block h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.meat-result-block p {
+  font-size: 13px;
+  line-height: 1.75;
+  margin: 6px 0;
+}
+.meat-result-block ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.meat-result-block li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.meat-result-block li > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--rp-red);
+}
+.meat-result-block strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+.meat-result-block small,
+.meat-result-block .meat-time-note {
+  font-size: 12px;
+  color: var(--rp-muted);
+}
+.meat-safety {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: var(--rp-surface);
+  border-radius: 12px;
+  margin: 14px 0;
+}
+.meat-safety > svg {
+  flex: none;
+  margin-top: 4px;
+  color: var(--rp-muted);
+}
+.meat-safety p {
+  margin: 0;
+  font-size: 12px;
+}
+.meat-guide-actions {
+  display: grid;
+  gap: 12px;
+  margin: 26px 0 8px;
+}
+.meat-guide-actions .button {
+  min-height: 46px;
+  gap: 8px;
+  white-space: normal;
+  text-align: center;
+}
+.meat-guide-actions .button > svg {
+  flex: none;
+}
+.meat-guide-actions > p {
+  font-size: 12px;
+  color: var(--rp-muted);
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .meat-guide-choices button {
+    transition: none;
+  }
+}

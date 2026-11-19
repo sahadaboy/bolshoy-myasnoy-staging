@@ -6,6 +6,7 @@ import { ErrorState, LoadingGrid } from '../components/States';
 import { RecipeCard } from '../components/RecipeCard';
 import { SectionHeader } from '../components/Retail';
 import { DinnerInvite } from '../components/DinnerInvite';
+import { MeatGuideInvite } from '../components/MeatGuideInvite';
 
 const meals = [
   { id: '', title: 'Все идеи' },
@@ -52,6 +53,7 @@ export default function IdeasPage() {
         <p>Вдохновение на каждый день</p>
       </div>
       {resource.data?.dinner_enabled && <DinnerInvite />}
+      <MeatGuideInvite />
       <div className="rp-meals" aria-label="Тип приёма пищи">
         {meals.map((item) => (
           <button
