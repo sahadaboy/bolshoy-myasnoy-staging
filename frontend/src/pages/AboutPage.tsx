@@ -7,11 +7,14 @@ import { BackLink } from '../components/Retail';
 import { ErrorState, LoadingGrid } from '../components/States';
 import { fetchStoreProfile, productImageUrl } from '../lib/api';
 import { useResource } from '../hooks/useResource';
+import { useStoreWeekday } from '../hooks/useStoreWeekday';
+import { parseOpeningHours } from '../lib/storeHours';
 
 export default function AboutPage() {
   const { data, loading, error, retry } = useResource(fetchStoreProfile);
   const gallery = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
+  const today = useStoreWeekday();
   const phone = data?.phone.replace(/^(\+7)(\d{3})(\d{3})(\d{2})(\d{2})$/, '$1 $2 $3 $4 $5');
   function move(next: number) {
     const first = gallery.current?.firstElementChild as HTMLElement | null;
@@ -108,22 +111,16 @@ export default function AboutPage() {
                 <Clock3 size={21} /> График работы
               </h2>
               <dl className="retail-hours">
-                {data.opening_hours
-                  .split('\n')
-                  .filter(Boolean)
-                  .map((line, position) => {
-                    const separator = line.indexOf(': ');
-                    return separator > -1 ? (
-                      <div key={position}>
-                        <dt>{line.slice(0, separator)}</dt>
-                        <dd>{line.slice(separator + 2)}</dd>
-                      </div>
-                    ) : (
-                      <div key={position}>
-                        <dt>{line}</dt>
-                      </div>
-                    );
-                  })}
+                {parseOpeningHours(data.opening_hours).map((row, position) => (
+                  <div
+                    key={position}
+                    className={row.days.includes(today) ? 'is-today' : undefined}
+                    aria-current={row.days.includes(today) ? 'date' : undefined}
+                  >
+                    <dt>{row.label}</dt>
+                    {row.hours && <dd>{row.hours}</dd>}
+                  </div>
+                ))}
               </dl>
             </section>
           )}

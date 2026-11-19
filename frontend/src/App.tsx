@@ -36,6 +36,7 @@ const OrderPage = lazy(() =>
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const StoreMapPage = lazy(() => import('./pages/StoreMapPage'));
 const DinnerPage = lazy(() => import('./pages/DinnerPage'));
+const MeatGuidePage = lazy(() => import('./pages/MeatGuidePage'));
 const scrollPositions = new Map<string, number>();
 
 function ScrollMemory() {
@@ -64,15 +65,17 @@ export default function App() {
         ? 'О нас'
         : pathname === '/ideas/dinner'
           ? 'Идея для ужина'
-          : pathname.startsWith('/cart')
-            ? 'Корзина'
-            : pathname.startsWith('/ideas')
-              ? 'Идеи'
-              : pathname.startsWith('/profile')
-                ? 'Профиль'
-                : pathname.startsWith('/product/')
-                  ? 'Товар'
-                  : 'Каталог';
+          : pathname === '/ideas/meat'
+            ? 'Какое мясо выбрать?'
+            : pathname.startsWith('/cart')
+              ? 'Корзина'
+              : pathname.startsWith('/ideas')
+                ? 'Идеи'
+                : pathname.startsWith('/profile')
+                  ? 'Профиль'
+                  : pathname.startsWith('/product/')
+                    ? 'Товар'
+                    : 'Каталог';
     document.title = `${title} — ${STORE_BRAND}`;
   }, [pathname]);
   return (
@@ -88,6 +91,7 @@ export default function App() {
           <Route path="checkout" element={<CheckoutPage />} />
           <Route path="ideas" element={<IdeasPage />} />
           <Route path="ideas/dinner" element={<DinnerPage />} />
+          <Route path="ideas/meat" element={<MeatGuidePage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="about/map" element={<StoreMapPage />} />
           <Route path="ideas/article/:slug" element={<ArticlePage />} />
