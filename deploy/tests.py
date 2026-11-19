@@ -113,11 +113,15 @@ class StagingBoundaryTests(SimpleTestCase):
             'AWS_ENDPOINT_URL_S3':'https://fixture.storage.eu-central-1.aws.neon.tech',
             'AWS_STORAGE_BUCKET_NAME':'test', 'AWS_ACCESS_KEY_ID':'fixture', 'AWS_SECRET_ACCESS_KEY':'fixture', 'AWS_REGION':'eu-central-1',
             'MINIAPP_ORDERS_ENABLED':'0', 'TELEGRAM_NOTIFICATIONS_ENABLED':'0', 'DJANGO_DEBUG':'1',
+            'STAGING_PICKUP_ENABLED':'0',
             'TELEGRAM_ADMIN_CHAT_ID':'-100001', 'TELEGRAM_BOT_TOKEN':'ci-bot-placeholder'}
         code = 'import django,json; django.setup(); from django.conf import settings as s; print(json.dumps([s.DEBUG,s.MINIAPP_ORDERS_ENABLED,s.TELEGRAM_NOTIFICATIONS_ENABLED,s.DATABASES["default"]["ENGINE"],s.STORAGES["default"]["OPTIONS"]["addressing_style"]]))'
         result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(result.stdout), [False,False,False,'django.db.backends.postgresql','path'])
         environment.update(MINIAPP_ORDERS_ENABLED='1', TELEGRAM_NOTIFICATIONS_ENABLED='1')
+        result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(result.stdout), [False,False,False,'django.db.backends.postgresql','path'])
+        environment['STAGING_PICKUP_ENABLED'] = '1'
         result = subprocess.run([sys.executable, '-c', code], env=environment, cwd=settings.BASE_DIR, capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(result.stdout), [False,True,True,'django.db.backends.postgresql','path'])
         environment['TELEGRAM_ADMIN_CHAT_ID'] = ''

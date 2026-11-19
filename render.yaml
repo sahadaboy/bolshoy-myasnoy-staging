@@ -23,6 +23,8 @@ services:
         sync: false
       - key: MINIAPP_ORDERS_ENABLED
         value: "0"
+      - key: STAGING_PICKUP_ENABLED
+        value: "0"
       - key: TELEGRAM_NOTIFICATIONS_ENABLED
         value: "0"
       - key: TELEGRAM_ADMIN_CHAT_ID

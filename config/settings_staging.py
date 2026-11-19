@@ -39,9 +39,11 @@ CSRF_TRUSTED_ORIGINS = [f'https://{host}' for host in ALLOWED_HOSTS]
 if not MINIAPP_PUBLIC_URL and render_host:
     MINIAPP_PUBLIC_URL = f'https://{render_host}'
 
-# Explicit server-side opt-in. Default remains closed during deployment/testing.
-MINIAPP_ORDERS_ENABLED = os.environ.get('MINIAPP_ORDERS_ENABLED', '0') == '1'
-TELEGRAM_NOTIFICATIONS_ENABLED = os.environ.get('TELEGRAM_NOTIFICATIONS_ENABLED', '0') == '1'
+# Old releases ignored both flags, so inherited values must not open checkout
+# on deployment. The new staging launch gate requires an explicit owner opt-in.
+pickup_launch_enabled = os.environ.get('STAGING_PICKUP_ENABLED', '0') == '1'
+MINIAPP_ORDERS_ENABLED = pickup_launch_enabled and os.environ.get('MINIAPP_ORDERS_ENABLED', '0') == '1'
+TELEGRAM_NOTIFICATIONS_ENABLED = pickup_launch_enabled and os.environ.get('TELEGRAM_NOTIFICATIONS_ENABLED', '0') == '1'
 if TELEGRAM_NOTIFICATIONS_ENABLED and (not TELEGRAM_BOT_TOKEN or not TELEGRAM_ADMIN_CHAT_ID):
     raise ImproperlyConfigured('Notification delivery requires the server bot token and TELEGRAM_ADMIN_CHAT_ID.')
 MINIAPP_SHOW_DEMO_CONTENT = False
