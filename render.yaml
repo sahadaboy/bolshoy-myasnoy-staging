@@ -21,12 +21,14 @@ services:
         value: bmmsev_bot
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      # Dashboard-managed: Blueprint updates must not reset the pickup launch.
+      # Set all three to 0 in Render before first release; enable after approval.
       - key: MINIAPP_ORDERS_ENABLED
-        value: "0"
+        sync: false
       - key: STAGING_PICKUP_ENABLED
-        value: "0"
+        sync: false
       - key: TELEGRAM_NOTIFICATIONS_ENABLED
-        value: "0"
+        sync: false
       - key: TELEGRAM_ADMIN_CHAT_ID
         sync: false
       - key: MINIAPP_WEIGHT_ESTIMATE
