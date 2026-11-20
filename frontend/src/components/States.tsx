@@ -41,7 +41,7 @@ export function ErrorState({
       </span>
       <h2>Не удалось загрузить данные</h2>
       <p>{message || 'Проверьте соединение и попробуйте ещё раз.'}</p>
-      <button className="button button-outline" onClick={retry}>
+      <button type="button" className="button button-outline" onClick={retry}>
         <RefreshCw size={17} aria-hidden="true" /> Попробовать ещё раз
       </button>
     </div>
