@@ -1,3 +1,4 @@
+import { PageSkeleton } from '../components/Loading';
 import { useCallback } from 'react';
 import { ReceiptText, RefreshCw } from 'lucide-react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { useResource } from '../hooks/useResource';
 import { fetchOrder, fetchOrders } from '../lib/api';
 import { formatMoney, formatQuantity, priceKopecks, quantityThousandths } from '../lib/quantity';
 import { BackLink } from '../components/Retail';
-import { ErrorState, LoadingGrid } from '../components/States';
+import { ErrorState } from '../components/States';
 import { RepeatOrder } from '../components/RepeatOrder';
 
 const date = new Intl.DateTimeFormat('ru-RU', {
@@ -47,19 +48,22 @@ export function OrdersPage() {
   return (
     <>
       <BackLink fallback="/profile" />
+      {resource.error && resource.data && (
+        <ErrorState compact retry={resource.retry} message={resource.error} />
+      )}
       <div className="page-intro">
         <h1>Мои заказы</h1>
         <p>Заявки на самовывоз</p>
       </div>
-      {session.loading ? (
-        <LoadingGrid count={2} />
-      ) : session.error ? (
+      {session.loading && !session.data ? (
+        <PageSkeleton kind="orders" />
+      ) : session.error && !session.data ? (
         <ErrorState retry={session.retry} message={session.error} />
       ) : !authenticated ? (
         <GuestOrders />
-      ) : resource.loading ? (
-        <LoadingGrid count={2} />
-      ) : resource.error ? (
+      ) : resource.loading && !resource.data ? (
+        <PageSkeleton kind="orders" />
+      ) : resource.error && !resource.data ? (
         <ErrorState retry={resource.retry} message={resource.error} />
       ) : !resource.data?.results.length ? (
         <div className="rp-empty">
@@ -123,15 +127,18 @@ export function OrderPage() {
   return (
     <>
       <BackLink fallback="/profile/orders" />
-      {session.loading ? (
-        <LoadingGrid count={2} />
-      ) : session.error ? (
+      {resource.error && order && (
+        <ErrorState compact retry={resource.retry} message={resource.error} />
+      )}
+      {session.loading && !session.data ? (
+        <PageSkeleton kind="orders" />
+      ) : session.error && !session.data ? (
         <ErrorState retry={session.retry} message={session.error} />
       ) : !authenticated ? (
         <GuestOrders />
-      ) : resource.loading ? (
-        <LoadingGrid count={2} />
-      ) : resource.error || !order ? (
+      ) : resource.loading && !resource.data ? (
+        <PageSkeleton kind="orders" />
+      ) : !order ? (
         <ErrorState retry={resource.retry} message={resource.error || 'Заявка не найдена.'} />
       ) : (
         <article className="retail-order-detail">

@@ -1,8 +1,9 @@
+import { PageSkeleton } from '../components/Loading';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { fetchIdeas } from '../lib/api';
 import { useResource } from '../hooks/useResource';
-import { ErrorState, LoadingGrid } from '../components/States';
+import { ErrorState } from '../components/States';
 import { RecipeCard } from '../components/RecipeCard';
 import { SectionHeader } from '../components/Retail';
 import { DinnerInvite } from '../components/DinnerInvite';
@@ -93,9 +94,9 @@ export default function IdeasPage() {
           ))}
         </div>
       )}
-      {resource.loading ? (
-        <LoadingGrid count={2} />
-      ) : resource.error ? (
+      {resource.loading && !resource.data ? (
+        <PageSkeleton kind="ideas" />
+      ) : resource.error && !resource.data ? (
         <ErrorState retry={resource.retry} message={resource.error} />
       ) : !articles.length ? (
         <div className="rp-empty">

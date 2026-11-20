@@ -98,9 +98,9 @@ export function CatalogPage() {
       {home ? (
         <>
           <h1 className="sr-only">Каталог Большого Мясного</h1>
-          {showcase.loading ? (
+          {showcase.loading && !showcase.data ? (
             <LoadingGrid count={2} />
-          ) : showcase.error ? (
+          ) : showcase.error && !showcase.data ? (
             <ErrorState retry={showcase.retry} message={showcase.error} />
           ) : (
             <>
@@ -166,7 +166,7 @@ export function CatalogPage() {
               ))}
             </div>
           )}
-          {data.loading ? (
+          {data.loading && !data.products.length ? (
             <LoadingGrid />
           ) : !data.products.length ? (
             data.error ? (
