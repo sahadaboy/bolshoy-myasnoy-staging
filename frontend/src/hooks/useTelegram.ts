@@ -10,6 +10,7 @@ import {
   type AppHistory,
 } from '../lib/telegram';
 import type { TelegramWebApp } from '../types/telegram';
+import { initializeVisualViewport } from '../lib/viewport';
 
 export function useTelegram(): void {
   const location = useLocation();
@@ -17,6 +18,8 @@ export function useTelegram(): void {
   const action = useNavigationType();
   const [app, setApp] = useState<TelegramWebApp | null>(null);
   const history = useRef<AppHistory>({ keys: [location.key], index: 0 });
+
+  useEffect(() => initializeVisualViewport(document.documentElement, window), []);
 
   useEffect(() => {
     history.current = trackAppHistory(history.current, location.key, action);

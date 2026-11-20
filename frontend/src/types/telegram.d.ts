@@ -6,7 +6,11 @@ export interface TelegramInsets {
 }
 
 export type TelegramViewportEvent =
-  'viewportChanged' | 'safeAreaChanged' | 'contentSafeAreaChanged';
+  | 'viewportChanged'
+  | 'safeAreaChanged'
+  | 'contentSafeAreaChanged'
+  | 'fullscreenChanged'
+  | 'fullscreenFailed';
 
 export interface TelegramBackButton {
   show: () => unknown;
@@ -22,6 +26,10 @@ export interface TelegramWebApp {
   version: string;
   ready: () => void;
   expand: () => void;
+  isFullscreen?: boolean;
+  requestFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  setHeaderColor?: (color: string) => void;
   isVersionAtLeast?: (version: string) => boolean;
   viewportStableHeight?: number;
   safeAreaInset?: Partial<TelegramInsets>;

@@ -1,6 +1,16 @@
 /* Production screens share the approved preview's tokens and proportions. */
 html:has(.retail) {
-  scroll-padding-block: 16px calc(88px + var(--app-safe-bottom, 0px));
+  scroll-padding-block: calc(16px + var(--app-safe-top, 0px)) calc(88px + var(--app-nav-safe-bottom, 0px) + var(--app-keyboard-offset, 0px));
+}
+html[data-telegram-mini-app='true'] .retail::before {
+  /* Paint the existing reserved area, without adding another inset. Scrolled
+     content must not show through the native status bar and Telegram controls. */
+  content: '';
+  position: fixed;
+  z-index: 11;
+  inset: var(--app-visual-top, 0px) 0 auto;
+  height: var(--app-safe-top, 0px);
+  background: #fff;
 }
 .retail :is(input, textarea, select, button) {
   scroll-margin-block: 12px;
@@ -184,11 +194,11 @@ html:has(.retail) {
   border-radius: 16px;
 }
 .retail .retail-sheet {
-  width: min(calc(100% - 24px), 448px);
+  width: min(calc(100% - var(--app-safe-left, 0px) - var(--app-safe-right, 0px) - 24px), 448px);
   border: 0;
   border-radius: 20px;
   padding: 20px;
-  max-height: calc(88dvh - var(--app-safe-top, 0px) - var(--app-safe-bottom, 0px));
+  max-height: max(0px, calc(min(var(--app-viewport-stable-height, 100dvh), var(--app-visual-height, 100dvh)) - var(--app-safe-top, 0px) - var(--app-safe-bottom, 0px) - 24px));
 }
 .retail-sheet .dialog-heading {
   display: flex;

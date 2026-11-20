@@ -35,7 +35,9 @@
   --motion-fast: 140ms;
   --motion-normal: 200ms;
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
-  /* Browser and Telegram device insets describe the same hardware margin. */
+  /* env() and Telegram system insets describe the SAME hardware margin: max,
+     never their sum. Telegram content insets add its controls inside that area.
+     Apply the combined inset once at each outer edge, not again in the header. */
   --app-tg-system-top: 0px;
   --app-tg-system-right: 0px;
   --app-tg-system-bottom: 0px;
@@ -48,8 +50,13 @@
   --app-safe-right: calc(max(env(safe-area-inset-right, 0px), var(--app-tg-system-right)) + var(--app-tg-content-right));
   --app-safe-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--app-tg-system-bottom)) + var(--app-tg-content-bottom));
   --app-safe-left: calc(max(env(safe-area-inset-left, 0px), var(--app-tg-system-left)) + var(--app-tg-content-left));
+  --app-nav-safe-bottom: var(--app-safe-bottom);
   --app-gutter: 32px;
   color-scheme: light;
+}
+:root[data-app-keyboard='true'] {
+  /* The home indicator/navigation bar is below the keyboard, not below our nav. */
+  --app-nav-safe-bottom: 0px;
 }
 * {
   box-sizing: border-box;
@@ -141,7 +148,8 @@ button {
   border-radius: 8px;
 }
 .skip-link:focus {
-  top: 12px;
+  top: calc(12px + var(--app-safe-top));
+  left: calc(16px + var(--app-safe-left));
 }
 .brand-header {
   background: var(--red);
@@ -730,13 +738,16 @@ h2 {
 }
 .app-dialog {
   position: fixed;
-  inset: 0;
+  inset: calc(var(--app-visual-top, 0px) + var(--app-safe-top) + 12px)
+    calc(var(--app-safe-right) + 12px)
+    calc(var(--app-visual-bottom, 0px) + var(--app-safe-bottom) + 12px)
+    calc(var(--app-safe-left) + 12px);
   margin: auto;
   padding: 32px;
   border: 0;
   border-radius: 24px;
-  width: min(440px, calc(100% - 32px));
-  max-height: calc(var(--app-viewport-stable-height, 100dvh) - 48px);
+  width: min(440px, calc(100% - var(--app-safe-left) - var(--app-safe-right) - 24px));
+  max-height: max(0px, calc(min(var(--app-viewport-stable-height, 100dvh), var(--app-visual-height, 100dvh)) - var(--app-safe-top) - var(--app-safe-bottom) - 24px));
   overflow: auto;
   overscroll-behavior: contain;
   background: white;
@@ -1796,10 +1807,10 @@ h2 {
     font-size: 13px;
   }
   .category-dialog {
-    inset: auto 0 0;
+    inset: auto var(--app-safe-right) var(--app-visual-bottom, 0px) var(--app-safe-left);
     margin: 0;
-    width: 100%;
-    max-height: calc(var(--app-viewport-stable-height, 100dvh) * 0.85);
+    width: auto;
+    max-height: max(0px, calc(min(var(--app-viewport-stable-height, 100dvh), var(--app-visual-height, 100dvh)) - var(--app-safe-top) - 12px));
     border-radius: 20px 20px 0 0;
     padding: 20px max(16px, var(--app-safe-right)) max(24px, var(--app-safe-bottom)) max(16px, var(--app-safe-left));
   }

@@ -99,6 +99,7 @@ export function initializeTelegramAppearance(app: TelegramWebApp, root: HTMLElem
   ]);
   properties.push('--app-viewport-stable-height');
   const sync = () => {
+    root.dataset.telegramFullscreen = app.isFullscreen ? 'active' : 'windowed';
     for (const edge of edges) {
       root.style.setProperty(
         `--app-tg-system-${edge}`,
@@ -114,7 +115,13 @@ export function initializeTelegramAppearance(app: TelegramWebApp, root: HTMLElem
     else root.style.removeProperty('--app-viewport-stable-height');
   };
   const events: TelegramViewportEvent[] = ['viewportChanged'];
-  if (supportsInsets) events.push('safeAreaChanged', 'contentSafeAreaChanged');
+  if (supportsInsets)
+    events.push(
+      'safeAreaChanged',
+      'contentSafeAreaChanged',
+      'fullscreenChanged',
+      'fullscreenFailed',
+    );
   root.dataset.telegramMiniApp = 'true';
   sync();
   events.forEach((event) => app.onEvent(event, sync));
@@ -122,11 +129,36 @@ export function initializeTelegramAppearance(app: TelegramWebApp, root: HTMLElem
     initializedApps.add(app);
     app.ready();
     app.expand();
+    // These are optional native capabilities, never a prerequisite for rendering.
+    if (supportsTelegramVersion(app, '6.9')) {
+      try {
+        app.setHeaderColor?.('#ffffff');
+      } catch {
+        /* retain the native header */
+      }
+    }
+    if (supportsTelegramVersion(app, '7.7')) {
+      try {
+        app.disableVerticalSwipes?.();
+      } catch {
+        /* normal page scrolling still works */
+      }
+    }
+    if (supportsInsets && !app.isFullscreen) {
+      try {
+        app.requestFullscreen?.();
+      } catch {
+        /* unsupported/denied: keep expanded mode */
+      }
+    }
+    // Some clients update their properties synchronously without emitting an event.
+    sync();
   }
   return () => {
     events.forEach((event) => app.offEvent(event, sync));
     properties.forEach((property) => root.style.removeProperty(property));
     delete root.dataset.telegramMiniApp;
+    delete root.dataset.telegramFullscreen;
   };
 }
 
