@@ -22,6 +22,12 @@ class Command(BaseCommand):
             self.stdout.write('Webhook: '+('configured at '+str(urlsplit(current).hostname) if current else 'not configured'))
             self.stdout.write('getWebhookInfo cannot prove getUpdates is inactive. No updates were read/acknowledged.')
             self.stdout.write('Pending updates: '+str(info.get('pending_update_count',0)))
+            self.stdout.write('Buttons enabled in this environment: '+('yes' if settings.TELEGRAM_ORDER_WEBHOOK_ENABLED else 'no'))
+            self.stdout.write('Staff allowlist configured: '+('yes' if settings.TELEGRAM_ORDER_STAFF_IDS else 'no'))
+            self.stdout.write('Webhook secret configured: '+('yes' if settings.TELEGRAM_WEBHOOK_SECRET else 'no'))
+            if current and settings.MINIAPP_PUBLIC_URL:
+                target=public_app_url(settings.MINIAPP_PUBLIC_URL)+'/api/telegram/order-webhook/'
+                self.stdout.write('Webhook matches this app: '+('yes' if current==target and set(info.get('allowed_updates',[]))=={'callback_query'} else 'no'))
             if not options['apply']: return
             if not options['acknowledge_no_other_consumer']: raise CommandError('Verify existing bot integrations and obtain owner approval first.')
             if not re.fullmatch(r'[A-Za-z0-9_-]{32,256}',settings.TELEGRAM_WEBHOOK_SECRET) or not settings.TELEGRAM_ORDER_STAFF_IDS: raise CommandError('Configure the protected webhook secret and staff IDs first.')

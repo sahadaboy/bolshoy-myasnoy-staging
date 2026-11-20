@@ -1,6 +1,5 @@
 """Two-stage staff confirmation. Database transitions precede idempotent UI edits."""
 from datetime import timedelta
-from html import escape
 import re
 import uuid
 from django.conf import settings
@@ -9,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 from .models import Order, OrderAcceptance, OrderNotification, OrderStatusEvent, TelegramCallbackReceipt
 from .notifications import telegram_call, DeliveryError
-from .order_messages import acceptance_footer
+from .order_messages import MOSCOW
 
 
 def admin_buttons(notification):
@@ -19,7 +18,10 @@ def admin_buttons(notification):
 
 def markup(row, notification, *, now=None):
     buttons=admin_buttons(notification)
-    if settings.TELEGRAM_ORDER_WEBHOOK_ENABLED and row.order.status==Order.Status.NEW and not row.accepted_at:
+    if settings.TELEGRAM_ORDER_WEBHOOK_ENABLED and row.accepted_at:
+        buttons.insert(0,[{'text':f'✅ Заказ принят · {row.accepted_at.astimezone(MOSCOW):%H:%M}',
+                           'callback_data':f'oa:{row.token.hex}:i'}])
+    elif settings.TELEGRAM_ORDER_WEBHOOK_ENABLED and row.order.status==Order.Status.NEW:
         prefix=f'oa:{row.token.hex}'
         if row.pending_staff_id and row.pending_until and row.pending_until>(now or timezone.now()):
             buttons.insert(0,[{'text':'Да, всё верно','callback_data':f'{prefix}:y:{row.pending_nonce}'},
@@ -49,13 +51,9 @@ def refresh_message(pk, *, force=False):
             revision=row.ui_revision
             OrderAcceptance.objects.filter(pk=pk).update(edit_claim=claim,edit_lease_until=now+timedelta(seconds=60))
             data={'chat_id':notification.destination,'message_id':notification.telegram_message_ids[-1], 'reply_markup':markup(row,notification,now=now)}
-            if row.accepted_at:
-                original=notification.payload_parts[-1]
-                data.update(text=(original if notification.payload_format=='html' else escape(original))+acceptance_footer(row),parse_mode='HTML',link_preview_options={'is_disabled':True})
-                method='editMessageText'
-            else: method='editMessageReplyMarkup'
         try:
-            telegram_call(method,data,timeout=3)
+            # Order text and frozen outbox payloads are immutable, including legacy plain parts.
+            telegram_call('editMessageReplyMarkup',data,timeout=3)
         except DeliveryError as exc:
             OrderAcceptance.objects.filter(pk=pk,edit_claim=claim).update(edit_claim=None,edit_lease_until=None,edit_error=str(exc)[:1000])
             return False
@@ -80,10 +78,10 @@ def process_callback(update):
             response='Недостаточно прав для подтверждения заказа.';return
         data=query.get('data')
         if not isinstance(data,str): return
-        match=re.fullmatch(r'oa:([a-f0-9]{32}):(s|y|c)(?::([a-f0-9]{16}))?',data)
+        match=re.fullmatch(r'oa:([a-f0-9]{32}):(s|y|c|i)(?::([a-f0-9]{16}))?',data)
         if not match: return
         token,action,nonce=match.groups()
-        if (action=='s' and nonce) or (action!='s' and not nonce): return
+        if (action in ('s','i') and nonce) or (action in ('y','c') and not nonce): return
         candidate=OrderAcceptance.objects.filter(token=token).values_list('order_id',flat=True).first()
         if not candidate: response='Заказ или кнопка устарели.';return
         with transaction.atomic():
@@ -107,8 +105,11 @@ def process_callback(update):
                 response='Действие уже обработано.';return
             now=timezone.now()
             if row.accepted_at or order.status!=Order.Status.NEW:
-                row.ui_revision+=1;row.save(update_fields=['ui_revision'])
-                response='Заказ уже принят или его статус изменён.';return
+                if action!='i':
+                    row.ui_revision+=1;row.save(update_fields=['ui_revision'])
+                response='Заказ уже принят.' if row.accepted_at else 'Статус заказа уже изменён.';return
+            if action=='i':
+                response='Заказ ещё не принят.';return
             pending=bool(row.pending_staff_id and row.pending_until and row.pending_until>now)
             if action=='s':
                 if pending and row.pending_staff_id!=staff_id:

@@ -19,7 +19,7 @@ from shop.models import Product
 from .models import StoreProfile, StoreOpeningInterval, Order, OrderItem, OrderNotification, OrderAcceptance, OrderStatusEvent, TelegramCallbackReceipt
 from .pickup import slots, validate_pickup, parse_legacy_hours, opening_text, MOSCOW
 from .order_messages import message_parts
-from .order_acceptance import process_callback, refresh_message
+from .order_acceptance import process_callback, refresh_message, notification_markup
 from .order_api import OrderRequestSerializer, fingerprint
 from .notifications import DeliveryError, deliver_one, telegram_call
 from .test_accounts import credentials, TOKEN
@@ -177,22 +177,62 @@ class PickupOrderTests(TestCase):
         self.assertEqual(self.client.get(f'/api/orders/{old.public_id}/').status_code,200)
 
     @patch('storefront.order_acceptance.telegram_call',return_value=True)
-    def test_two_stage_cancel_owner_guard_and_exact_acceptance_footer(self,api):
+    def test_two_stage_cancel_owner_guard_and_acceptance_indicator_only(self,api):
+        clock=patch('storefront.order_acceptance.timezone.now',return_value=datetime(2026,11,21,10,0,tzinfo=MOSCOW))
+        clock.start();self.addCleanup(clock.stop)
         order=self.create_order();notification,row=self.delivered(order)
         self.assertEqual(self.post_callback(self.update(row,notification)).status_code,200)
         order.refresh_from_db();row.refresh_from_db();self.assertEqual(order.status,'new');nonce=row.pending_nonce
         self.post_callback(self.update(row,notification,'y',staff=200,nonce=nonce));order.refresh_from_db();self.assertEqual(order.status,'new')
         self.post_callback(self.update(row,notification,'c',nonce=nonce));row.refresh_from_db();self.assertIsNone(row.pending_staff_id)
         self.post_callback(self.update(row,notification));row.refresh_from_db()
-        self.post_callback(self.update(row,notification,'y',nonce=row.pending_nonce));row.refresh_from_db();order.refresh_from_db()
+        accepted=datetime(2026,11,21,10,0,tzinfo=MOSCOW)
+        with patch('storefront.order_acceptance.timezone.now',return_value=accepted):
+            self.post_callback(self.update(row,notification,'y',nonce=row.pending_nonce))
+        row.refresh_from_db();order.refresh_from_db()
         self.assertEqual((order.status,row.accepted_staff_id,row.accepted_username),('confirmed',100,'employee'))
         self.assertEqual(OrderStatusEvent.objects.filter(order=order,status='confirmed').count(),1)
-        edit=next(call for call in reversed(api.call_args_list) if call.args[0]=='editMessageText').args[1]
-        self.assertTrue(edit['text'].startswith(notification.payload_parts[-1]));self.assertIn('✅ ЗАКАЗ ПРИНЯЛ: @employee',edit['text'])
-        expected=row.accepted_at.astimezone(MOSCOW).strftime('%d.%m.%Y %H:%M')
-        self.assertIn('Заказ принят в '+expected,edit['text']);self.assertNotIn('Время принятия',edit['text'])
-        self.assertEqual(len(edit['reply_markup']['inline_keyboard']),1)
-        self.assertFalse(any(c.args[0]=='sendMessage' for c in api.call_args_list))
+        self.assertEqual(row.accepted_at,accepted)
+        edit=next(call for call in reversed(api.call_args_list) if call.args[0]=='editMessageReplyMarkup').args[1]
+        keyboard=edit['reply_markup']['inline_keyboard']
+        self.assertEqual(keyboard[0],[{'text':'✅ Заказ принят · 10:00','callback_data':f'oa:{row.token.hex}:i'}])
+        self.assertEqual(keyboard[1][0]['text'],'Открыть заказ в Admin')
+        self.assertEqual(self.client.get(f'/api/orders/{order.public_id}/').data['status'],'confirmed')
+        for call in api.call_args_list:
+            self.assertIn(call.args[0],['editMessageReplyMarkup','answerCallbackQuery'])
+            if call.args[0]=='editMessageReplyMarkup':
+                self.assertNotIn('text',call.args[1]);self.assertNotIn('parse_mode',call.args[1])
+                self.assertNotIn('employee',json.dumps(call.args[1]));self.assertNotIn('Сотрудник',json.dumps(call.args[1]))
+        original=notification.payload_parts;notification.refresh_from_db();self.assertEqual(notification.payload_parts,original)
+
+    @patch('storefront.order_acceptance.telegram_call',return_value=True)
+    def test_accepted_indicator_is_informational_and_old_buttons_cannot_accept_again(self,api):
+        order=self.create_order();notification,row=self.delivered(order)
+        self.post_callback(self.update(row,notification));row.refresh_from_db();nonce=row.pending_nonce
+        self.post_callback(self.update(row,notification,'y',nonce=nonce));row.refresh_from_db();accepted=row.accepted_at
+        api.reset_mock()
+        for staff in (100,200): self.post_callback(self.update(row,notification,'i',staff=staff))
+        self.assertEqual([call.args[0] for call in api.call_args_list],['answerCallbackQuery','answerCallbackQuery'])
+        self.assertTrue(all(call.args[1]['text']=='Заказ уже принят.' for call in api.call_args_list))
+        self.post_callback(self.update(row,notification,'y',nonce=nonce));self.post_callback(self.update(row,notification,'s'))
+        self.post_callback(self.update(row,notification,'i',staff=999))
+        row.refresh_from_db();self.assertEqual(row.accepted_at,accepted);self.assertEqual(row.accepted_staff_id,100)
+        self.assertEqual(OrderStatusEvent.objects.filter(order=order,status='confirmed').count(),1)
+        self.assertFalse(any(c.args[0] in ('sendMessage','editMessageText') for c in api.call_args_list))
+        with override_settings(MINIAPP_ADMIN_URL=''):
+            self.assertEqual(len(notification_markup(notification,len(notification.payload_parts)-1)['inline_keyboard']),1)
+
+    def test_notification_buttons_require_enabled_webhook_and_only_last_part(self):
+        order=self.create_order();notification=order.notification
+        notification.payload_parts=['first','last'];notification.save()
+        with override_settings(TELEGRAM_ORDER_WEBHOOK_ENABLED=False):
+            buttons=notification_markup(notification,1)['inline_keyboard']
+        self.assertEqual(len(buttons),1);self.assertIn('url',buttons[0][0]);self.assertFalse(OrderAcceptance.objects.exists())
+        self.assertEqual(len(notification_markup(notification,0)['inline_keyboard']),1)
+        buttons=notification_markup(notification,1)['inline_keyboard']
+        self.assertEqual(buttons[0][0]['text'],'✅ Подтвердить заказ');self.assertTrue(OrderAcceptance.objects.exists())
+        with override_settings(MINIAPP_ADMIN_URL=''):
+            self.assertEqual(len(notification_markup(notification,1)['inline_keyboard']),1)
 
     @patch('storefront.order_acceptance.telegram_call',return_value=True)
     def test_secret_staff_chat_message_and_bot_are_all_checked(self,api):
@@ -227,7 +267,12 @@ class PickupOrderTests(TestCase):
         with patch('storefront.order_acceptance.telegram_call',return_value=True) as api:
             self.assertTrue(refresh_message(row.pk,force=True));self.assertTrue(refresh_message(row.pk,force=True))
         for call in api.call_args_list:
-            text=call.args[1]['text'];self.assertEqual(text.count('ЗАКАЗ ПРИНЯЛ'),1);self.assertIn('&lt;Анна &amp;&gt;',text)
+            self.assertEqual(call.args[0],'editMessageReplyMarkup');self.assertNotIn('text',call.args[1])
+            keyboard=call.args[1]['reply_markup']['inline_keyboard']
+            self.assertTrue(keyboard[0][0]['text'].startswith('✅ Заказ принят · '))
+        self.assertEqual(api.call_args_list[0].args,api.call_args_list[1].args)
+        notification.refresh_from_db();self.assertEqual(notification.payload_parts,['<old plain>','legacy final part'])
+        row.refresh_from_db();self.assertEqual(row.accepted_name,'<Анна &>');self.assertFalse(row.edit_error)
         self.assertEqual(OrderStatusEvent.objects.filter(status='confirmed').count(),1)
 
     def test_database_rollback_never_answers_that_order_was_accepted(self):
@@ -301,15 +346,18 @@ class WebhookSetupTests(SimpleTestCase):
     def test_already_applied_edit_is_success_and_bot_secret_is_not_in_error(self):
         body=json.dumps({'description':'Bad Request: message is not modified'}).encode()
         with patch('storefront.notifications.urlopen',side_effect=HTTPError('https://secret.invalid/bot-private',400,'bad',{},BytesIO(body))):
-            self.assertTrue(telegram_call('editMessageText',{}))
+            self.assertTrue(telegram_call('editMessageReplyMarkup',{}))
         with patch('storefront.notifications.urlopen',side_effect=HTTPError('https://secret.invalid/bot-private',403,'bad',{},BytesIO(b'{}'))):
-            with self.assertRaises(DeliveryError) as error: telegram_call('editMessageText',{})
+            with self.assertRaises(DeliveryError) as error: telegram_call('editMessageReplyMarkup',{})
         self.assertNotIn('bot-private',str(error.exception));self.assertNotIn('unit-only',str(error.exception))
 
     def test_default_check_is_read_only_and_never_reads_or_acknowledges_updates(self):
+        output=StringIO()
         with patch('storefront.management.commands.check_order_webhook.telegram_call',side_effect=[{'username':'store_bot'},{'url':'','pending_update_count':1}]) as api:
-            call_command('check_order_webhook',stdout=StringIO())
+            call_command('check_order_webhook',stdout=output)
         self.assertEqual([c.args[0] for c in api.call_args_list],['getMe','getWebhookInfo'])
+        self.assertIn('Buttons enabled in this environment: yes',output.getvalue())
+        self.assertNotIn('unit-secret',output.getvalue())
 
     def test_foreign_webhook_pending_updates_and_missing_ack_are_not_replaced(self):
         for info,ack in [({'url':'https://another.example/webhook'},True),({'url':'','pending_update_count':1},True),({'url':''},False)]:

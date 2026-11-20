@@ -27,7 +27,3 @@ def message_parts(order):
         current+=block
     if current: parts.append(current)
     return parts
-
-def acceptance_footer(row):
-    person='@'+row.accepted_username if row.accepted_username else row.accepted_name
-    return f'\n\n<b>✅ ЗАКАЗ ПРИНЯЛ: {escape(person)}</b>\n<b>🕒 Заказ принят в {row.accepted_at.astimezone(MOSCOW):%d.%m.%Y %H:%M}</b>'
