@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => {
     throw new Error('Задайте MINIAPP_TUNNEL_HOST — точный hostname текущего Quick Tunnel.');
   const target = process.env.VITE_API_TARGET || 'http://127.0.0.1:8001';
   const localProxy = {
-    '/api': { target, changeOrigin: true },
-    '/media': { target, changeOrigin: true },
+    '/api': { target, changeOrigin: false },
+    '/media': { target, changeOrigin: false },
   };
   return {
     plugins: [

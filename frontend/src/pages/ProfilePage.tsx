@@ -75,7 +75,7 @@ export default function ProfilePage() {
         </span>
         <div>
           <h2>
-            {session.loading
+            {session.loading && !user
               ? 'Проверяем вход…'
               : user
                 ? [user.first_name, user.last_name].filter(Boolean).join(' ')

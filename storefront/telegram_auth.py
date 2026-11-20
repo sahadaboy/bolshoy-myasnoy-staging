@@ -10,6 +10,7 @@ from django.conf import settings
 from django.views.decorators.debug import sensitive_variables
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.authentication import SessionAuthentication
 
 
 @dataclass(frozen=True)
@@ -77,3 +78,21 @@ class TelegramAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return 'tma'
+
+
+class CustomerAuthentication(TelegramAuthentication):
+    def authenticate(self, request):
+        if get_authorization_header(request):
+            return super().authenticate(request)
+        customer_id = request.customer_session.get('miniapp_customer_id')
+        telegram_id = request.customer_session.get('miniapp_telegram_id')
+        if not customer_id or not telegram_id:
+            return None
+        from .models import Customer
+        customer = Customer.objects.filter(pk=customer_id, telegram_id=telegram_id).first()
+        if not customer:
+            return None
+        SessionAuthentication().enforce_csrf(request)
+        request.customer = customer
+        return TelegramIdentity(customer.telegram_id, customer.first_name, customer.last_name,
+                                customer.username, customer.photo_url, customer.identity_date), 'customer-session'

@@ -17,21 +17,24 @@ from shop.models import Product
 from .models import Order, OrderItem, StoreProfile, Customer, OrderNotification, OrderStatusEvent
 from .customers import sync_customer, normalize_phone
 from .quantities import line_total, valid_quantity
-from .telegram_auth import TelegramAuthentication
+from .telegram_auth import TelegramAuthentication, CustomerAuthentication
+from django.middleware.csrf import get_token, rotate_token
+from rest_framework.authentication import SessionAuthentication
+from django.utils.cache import patch_vary_headers
 
 
 class PrivateAPI(APIView):
-    authentication_classes = [TelegramAuthentication]
+    authentication_classes = [CustomerAuthentication]
 
     def perform_authentication(self, request):
         super().perform_authentication(request)
-        if request.user and request.user.is_authenticated:
+        if request.user and request.user.is_authenticated and not hasattr(request, 'customer'):
             request.customer = sync_customer(request.user)
 
     def finalize_response(self, request, response, *args, **kwargs):
         result = super().finalize_response(request, response, *args, **kwargs)
         result['Cache-Control'] = 'private, no-store'
-        result['Vary'] = 'Authorization'
+        patch_vary_headers(result, ['Authorization', 'Cookie'])
         result['X-Content-Type-Options'] = 'nosniff'
         return result
 
@@ -42,6 +45,7 @@ class SessionView(PrivateAPI):
         verified = bool(user and user.is_authenticated)
         profile = StoreProfile.objects.filter(pk=1).first()
         return Response({
+            'csrf_token': get_token(request),
             'authenticated': verified,
             'user': {'id': str(user.id), 'customer_id': request.customer.pk,
                      'first_name': request.customer.first_name, 'last_name': request.customer.last_name,
@@ -56,6 +60,24 @@ class SessionView(PrivateAPI):
                       'phone': (profile.phone if profile else settings.MINIAPP_STORE_PHONE) or None,
                       'email': (profile.email if profile else settings.MINIAPP_STORE_EMAIL) or None},
         })
+
+
+class SessionLoginView(PrivateAPI):
+    authentication_classes = [TelegramAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def perform_authentication(self, request):
+        APIView.perform_authentication(self, request)
+
+    def post(self, request):
+        SessionAuthentication().enforce_csrf(request)
+        request.customer = sync_customer(request.user)
+        request.customer_session.cycle_key()
+        rotate_token(request)
+        request.customer_session['miniapp_customer_id'] = request.customer.pk
+        request.customer_session['miniapp_telegram_id'] = request.user.id
+        request.customer_session.set_expiry(settings.MINIAPP_SESSION_AGE)
+        return SessionView.get(self, request)
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -193,6 +215,8 @@ class OrderListCreateView(PrivateAPI):
                 for line in lines:
                     line.order = order
                 OrderItem.objects.bulk_create(lines)
+                from .cart_api import consume_order_cart
+                consume_order_cart(customer, lines)
                 customer.phone = data['phone']; customer.save(update_fields=['phone'])
                 notification = OrderNotification.objects.create(order=order)
                 OrderStatusEvent.objects.create(order=order, status=Order.Status.NEW)

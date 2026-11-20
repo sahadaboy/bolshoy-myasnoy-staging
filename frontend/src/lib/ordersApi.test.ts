@@ -11,7 +11,8 @@ const body: OrderRequest = {
 };
 beforeEach(() =>
   vi.stubGlobal('window', {
-    location: { origin: 'http://localhost:5174' },
+    location: { origin: 'http://localhost:5174', search: '', hash: '' },
+    dispatchEvent: vi.fn(),
     Telegram: { WebApp: { initData: 'signed-init-data' } },
     setTimeout,
     clearTimeout,
@@ -19,13 +20,19 @@ beforeEach(() =>
 );
 afterEach(() => vi.unstubAllGlobals());
 
-it('sends signed data in the private header without putting it in URLs', async () => {
-  const mock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ authenticated: true })));
+it('exchanges signed data once for a cookie session, with CSRF and no credentials in URLs', async () => {
+  const mock = vi
+    .fn()
+    .mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ authenticated: true, csrf_token: 'csrf' }))),
+    );
   vi.stubGlobal('fetch', mock);
   await fetchSession();
   expect(mock.mock.calls[0][0]).toBe('/api/session/');
-  expect(mock.mock.calls[0][1].headers.Authorization).toBe('tma signed-init-data');
-  expect(mock.mock.calls[0][1].credentials).toBe('omit');
+  expect(mock.mock.calls[1][0]).toBe('/api/session/login/');
+  expect(mock.mock.calls[1][1].headers.Authorization).toBe('tma signed-init-data');
+  expect(mock.mock.calls[1][1].headers['X-CSRFToken']).toBe('csrf');
+  expect(mock.mock.calls[0][1].credentials).toBe('same-origin');
 });
 
 it('rejects disabled submissions and malformed success responses', async () => {
@@ -61,25 +68,39 @@ it('saves the phone through the authenticated profile endpoint independently of 
   });
   expect(mock.mock.calls[0][0]).toBe('/api/profile/');
   expect(mock.mock.calls[0][1].method).toBe('POST');
-  expect(mock.mock.calls[0][1].headers.Authorization).toBe('tma signed-init-data');
-  expect(mock.mock.calls[0][1].credentials).toBe('omit');
+  expect(mock.mock.calls[0][1].headers.Authorization).toBeUndefined();
+  expect(mock.mock.calls[0][1].credentials).toBe('same-origin');
 });
 
 it('never reports phone success for expired authentication, validation errors or malformed responses', async () => {
   const mock = vi
     .fn()
-    .mockResolvedValueOnce(new Response(JSON.stringify({ detail: 'expired' }), { status: 401 }))
-    .mockResolvedValueOnce(
-      new Response(JSON.stringify({ phone: ['Проверьте номер.'] }), {
-        status: 400,
-      }),
-    )
-    .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })));
+    .mockImplementation((path: string) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            path === '/api/session/'
+              ? { authenticated: false, csrf_token: 'csrf' }
+              : { detail: 'expired' },
+          ),
+          { status: path === '/api/session/' ? 200 : 401 },
+        ),
+      ),
+    );
   vi.stubGlobal('fetch', mock);
   await expect(updateCustomerPhone('123')).rejects.toMatchObject({
     status: 401,
     message: expect.stringContaining('из меню бота'),
   });
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ phone: ['Проверьте номер.'] }), { status: 400 }),
+      ),
+  );
   await expect(updateCustomerPhone('123')).rejects.toThrow('Проверьте номер');
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }))));
   await expect(updateCustomerPhone('123')).rejects.toThrow('не подтвердил сохранение');
 });

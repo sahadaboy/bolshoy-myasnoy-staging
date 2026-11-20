@@ -10,6 +10,7 @@ import { formatMoney, formatQuantity, lineTotal } from '../lib/quantity';
 import { BackLink } from '../components/Retail';
 import { ErrorState } from '../components/States';
 import { formatPhoneInput } from '../lib/phone';
+import { CartSyncNotice } from '../components/CartSyncNotice';
 
 export default function CheckoutPage() {
   const cart = useCart();
@@ -35,6 +36,7 @@ export default function CheckoutPage() {
   const ready =
     !!session.data?.checkout_enabled &&
     session.data.authenticated &&
+    cart.syncStatus === 'synced' &&
     !validation.checking &&
     !validation.error &&
     cart.items.length > 0 &&
@@ -46,12 +48,13 @@ export default function CheckoutPage() {
     pending.current = true;
     setBusy(true);
     setError('');
-    const items = cart.items.map((item) => ({
-      product_id: item.product.id,
-      quantity: `${Math.floor(item.quantity / 1000)}.${String(item.quantity % 1000).padStart(3, '0')}`,
-      expected_price: item.product.price,
-    }));
     try {
+      const submitted = await cart.flush();
+      const items = submitted.map((item) => ({
+        product_id: item.product.id,
+        quantity: `${Math.floor(item.quantity / 1000)}.${String(item.quantity % 1000).padStart(3, '0')}`,
+        expected_price: item.product.price,
+      }));
       const request_id = await orderRequestId({
         user: session.data?.user?.id,
         name: name.trim(),
@@ -67,7 +70,7 @@ export default function CheckoutPage() {
         comment: comment.trim(),
         items,
       });
-      cart.clear();
+      cart.orderSaved(submitted);
       finishOrderRequest();
       session.retry();
       navigate(`/profile/orders/${order.id}`, {
@@ -86,6 +89,7 @@ export default function CheckoutPage() {
   return (
     <>
       <BackLink fallback="/cart" />
+      <CartSyncNotice />
       <div className="page-intro">
         <h1>Самовывоз</h1>
         <p>Проверьте покупки и оставьте контакты</p>
