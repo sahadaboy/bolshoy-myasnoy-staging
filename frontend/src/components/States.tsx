@@ -12,7 +12,10 @@ export function LoadingGrid({ count = 8 }: { count?: number }) {
       {Array.from({ length: count }, (_, index) => (
         <div className="product-card skeleton-card" key={index}>
           <div className="skeleton skeleton-picture" />
-          <div className="skeleton skeleton-price" />
+          <div className="loading-purchase">
+            <div className="skeleton skeleton-price" />
+            <span className="skeleton loading-add" />
+          </div>
           <div className="skeleton skeleton-line" />
           <div className="skeleton skeleton-line short" />
           <div className="skeleton skeleton-button" />

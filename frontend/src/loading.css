@@ -56,8 +56,40 @@
 }
 .loading-detail-photo {
   aspect-ratio: 1;
-  max-height: 420px;
-  border-radius: 20px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.loading-purchase {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 44px;
+  margin: 8px 0 10px;
+}
+.loading-purchase .skeleton-price {
+  height: 22px;
+  width: 50%;
+  margin: 0;
+}
+.loading-add {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.loading-category-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0 30px;
+}
+.loading-category-row > span {
+  aspect-ratio: 1;
+  border-radius: 14px;
+}
+.retail .loading-surface .skeleton-line {
+  margin-top: 6px;
+  height: 14px;
 }
 .loading-idea-photo {
   aspect-ratio: 1.45;

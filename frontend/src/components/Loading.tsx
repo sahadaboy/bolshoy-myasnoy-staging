@@ -1,5 +1,6 @@
 import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import { ErrorState, LoadingGrid } from './States';
+import { BackLink } from './Retail';
 
 export function PageSkeleton({
   kind,
@@ -22,6 +23,9 @@ export function PageSkeleton({
         </>
       ) : kind === 'profile' ? (
         <>
+          <div className="page-intro">
+            <h1>Профиль</h1>
+          </div>
           <div className="loading-person">
             <span className="skeleton" />
             <div className="skeleton skeleton-line" />
@@ -64,7 +68,46 @@ export function RouteSkeleton({ path }: { path: string }) {
           : path.startsWith('/ideas')
             ? 'ideas'
             : null;
-  return kind ? <PageSkeleton kind={kind} /> : <LoadingGrid count={4} />;
+  if (!kind)
+    return (
+      <>
+        <div className="skeleton loading-control" />
+        <div className="loading-category-row" aria-hidden="true">
+          {Array.from({ length: 5 }, (_, i) => (
+            <span className="skeleton" key={i} />
+          ))}
+        </div>
+        <LoadingGrid count={4} />
+      </>
+    );
+  return (
+    <>
+      {(kind === 'product' || kind === 'orders') && (
+        <BackLink fallback={kind === 'orders' ? '/profile' : '/catalog'} />
+      )}
+      {path === '/profile/orders' && (
+        <div className="page-intro">
+          <h1>Мои заказы</h1>
+          <p>Заявки на самовывоз</p>
+        </div>
+      )}
+      {kind === 'orders' && path !== '/profile/orders' && !path.endsWith('/success') && (
+        <div className="page-intro">
+          <h1>Ваш заказ</h1>
+        </div>
+      )}
+      {path === '/ideas' && (
+        <>
+          <div className="rp-ideas-title">
+            <h1>Идеи</h1>
+            <p>Вдохновение на каждый день</p>
+          </div>
+          <div className="skeleton loading-control" />
+        </>
+      )}
+      <PageSkeleton kind={kind} />
+    </>
+  );
 }
 
 export class PageErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

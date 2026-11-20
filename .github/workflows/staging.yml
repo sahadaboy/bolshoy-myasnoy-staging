@@ -62,5 +62,7 @@ jobs:
             sleep 2
           done
           curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:10000/catalog >/dev/null
+          curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:10000/boot.js >/dev/null
+          curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:10000/boot.css >/dev/null
           curl -fsS -H 'X-Forwarded-Proto: https' http://localhost:10000/static/admin/css/base.css >/dev/null
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'X-Forwarded-Proto: https' http://localhost:10000/.env)" = 404

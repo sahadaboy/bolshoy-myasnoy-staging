@@ -12,7 +12,7 @@ def collect(source=None, target=None):
     if not (source / 'index.html').is_file():
         raise RuntimeError('Build the frontend first.')
     target.mkdir(parents=True, exist_ok=True)
-    files = ['brand-logo-original.png', 'image-credits.txt', 'brand/telegram.svg', 'brand/vk.svg', 'fonts/Manrope-OFL.txt']
+    files = ['boot.js', 'boot.css', 'brand-logo-original.png', 'image-credits.txt', 'brand/telegram.svg', 'brand/vk.svg', 'fonts/Manrope-OFL.txt']
     for folder in ('assets', 'categories'):
         if (source / folder).is_dir():
             for path in (source / folder).iterdir():
