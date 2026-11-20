@@ -1,3 +1,4 @@
+from ._test_pickup_fixtures import available_pickup
 from decimal import Decimal
 from hashlib import sha256
 from urllib.parse import urlencode
@@ -57,7 +58,7 @@ class OrderTests(TestCase):
         self.weight = Product.objects.create(name='Кешью', sku='test-kg', price='1575', unit='kg', min_quantity='.5', quantity_step='.1')
 
     def payload(self, product=None, quantity='1.000'):
-        return {'request_id': str(uuid4()), 'buyer_name': 'Покупатель', 'phone': '+7 (900) 123-45-67', 'comment': 'Без пакета', 'items': [{'product_id': (product or self.piece).pk, 'quantity': quantity}]}
+        return {'pickup_at': available_pickup(), 'request_id': str(uuid4()), 'buyer_name': 'Покупатель', 'phone': '+7 (900) 123-45-67', 'comment': 'Без пакета', 'items': [{'product_id': (product or self.piece).pk, 'quantity': quantity}]}
 
     def post(self, data):
         return self.client.post('/api/orders/', data, format='json')

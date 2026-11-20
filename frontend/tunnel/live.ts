@@ -25,7 +25,7 @@ export function liveRoute(
     return /^(GET|HEAD)$/.test(method) ? 'media' : undefined;
   if (path !== raw) return;
   const read =
-    /^\/api\/(?:products(?:\/[1-9]\d*)?|categories|banners|storefront|store|session|dinner\/schema|ideas(?:\/[a-z0-9_-]+)?|orders(?:\/[a-f0-9-]{36})?)\/$/.test(
+    /^\/api\/(?:products(?:\/[1-9]\d*)?|categories|banners|storefront|store|pickup-slots|session|dinner\/schema|ideas(?:\/[a-z0-9_-]+)?|orders(?:\/[a-f0-9-]{36})?)\/$/.test(
       path,
     );
   const write =
@@ -39,7 +39,7 @@ export function liveRoute(
   if (!/^(GET|HEAD)$/.test(method)) return;
   if (files.has(path) || /^\/brand\/(telegram|vk)\.svg$/.test(path)) return 'file';
   if (
-    /^\/(?:catalog|about(?:\/map)?|ideas(?:\/dinner|\/article\/[a-z0-9_-]+|\/recipes|\/collections)?|cart|checkout|profile(?:\/orders(?:\/[a-f0-9-]{36})?|\/store|\/about|\/contacts|\/help)?|product\/[1-9]\d*)?\/?$/.test(
+    /^\/(?:catalog|about(?:\/map)?|ideas(?:\/dinner|\/article\/[a-z0-9_-]+|\/recipes|\/collections)?|cart|checkout|profile(?:\/orders(?:\/[a-f0-9-]{36}(?:\/success)?)?|\/store|\/about|\/contacts|\/help)?|product\/[1-9]\d*)?\/?$/.test(
       path,
     )
   )

@@ -1,3 +1,4 @@
+from ._test_pickup_fixtures import available_pickup
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
@@ -36,7 +37,7 @@ class AccountOrderTests(TestCase):
 
     def payload(self):
         from uuid import uuid4
-        return {'request_id': str(uuid4()), 'buyer_name':'Анна', 'phone':'+7 (978) 123-45-67',
+        return {'pickup_at': available_pickup(), 'request_id': str(uuid4()), 'buyer_name':'Анна', 'phone':'+7 (978) 123-45-67',
                 'items':[{'product_id':self.product.pk,'quantity':'2','expected_price':'100'}]}
 
     def order(self):

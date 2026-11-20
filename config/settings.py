@@ -144,6 +144,18 @@ MINIAPP_PUBLIC_URL = os.environ.get('MINIAPP_PUBLIC_URL', '').rstrip('/')
 MINIAPP_ADMIN_URL = os.environ.get('MINIAPP_ADMIN_URL', '').rstrip('/')
 TELEGRAM_ADMIN_CHAT_ID = os.environ.get('TELEGRAM_ADMIN_CHAT_ID', '')
 TELEGRAM_NOTIFICATIONS_ENABLED = os.environ.get('TELEGRAM_NOTIFICATIONS_ENABLED', '0') == '1'
+TELEGRAM_ORDER_WEBHOOK_ENABLED = os.environ.get('TELEGRAM_ORDER_WEBHOOK_ENABLED', '0') == '1'
+TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
+try:
+    TELEGRAM_ORDER_STAFF_IDS = frozenset(int(value.strip()) for value in os.environ.get('TELEGRAM_ORDER_STAFF_IDS','').split(',') if value.strip())
+except ValueError:
+    raise ImproperlyConfigured('TELEGRAM_ORDER_STAFF_IDS must contain comma-separated numeric IDs.') from None
+if any(value<=0 or value>=2**63 for value in TELEGRAM_ORDER_STAFF_IDS):
+    raise ImproperlyConfigured('Invalid Telegram staff ID.')
+if TELEGRAM_ORDER_WEBHOOK_ENABLED:
+    import re
+    if not TELEGRAM_ORDER_STAFF_IDS or not re.fullmatch(r'[A-Za-z0-9_-]{32,256}', TELEGRAM_WEBHOOK_SECRET) or not TELEGRAM_BOT_TOKEN or not MINIAPP_BOT_USERNAME:
+        raise ImproperlyConfigured('Order webhook requires a bot token, staff IDs and a 32–256 character secret.')
 TELEGRAM_AUTH_MAX_AGE = int(os.environ.get('TELEGRAM_AUTH_MAX_AGE', '3600'))
 MINIAPP_ORDERS_ENABLED = os.environ.get('MINIAPP_ORDERS_ENABLED', '0') == '1'
 MINIAPP_WEIGHT_ESTIMATE = os.environ.get('MINIAPP_WEIGHT_ESTIMATE', '0') == '1'

@@ -8,5 +8,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('storefront.urls')),
     path('api/products/', ProductListView.as_view()),
-    re_path(r'^(?:catalog|about(?:/map)?|ideas(?:/dinner|/article/[a-z0-9_-]+|/recipes|/collections)?|cart|checkout|profile(?:/orders(?:/[a-f0-9-]{36})?|/store|/about|/contacts|/help)?|product/[1-9]\d*)?/?$', spa),
+    re_path(r'^(?:catalog|about(?:/map)?|ideas(?:/dinner|/article/[a-z0-9_-]+|/recipes|/collections)?|cart|checkout|profile(?:/orders(?:/[a-f0-9-]{36}(?:/success)?)?|/store|/about|/contacts|/help)?|product/[1-9]\d*)?/?$', spa),
 ]

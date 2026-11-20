@@ -15,6 +15,10 @@ class SingletonModel(models.Model):
 
 
 class StoreProfile(SingletonModel):
+    schedule_configured = models.BooleanField('Использовать структурированный график', default=False,
+        help_text='Интервалы ниже — единый график для О нас и самовывоза. День без интервалов закрыт.')
+    preparation_minutes = models.PositiveIntegerField('Время на сборку, минут', default=60,
+        validators=[MinValueValidator(1), MaxValueValidator(1440)])
     name = models.CharField('Название магазина', max_length=150, default='Большой Мясной Маркет')
     description = models.TextField('О магазине', blank=True, max_length=2500)
     address = models.CharField('Адрес', max_length=250, default='Севастополь, Камышовое шоссе, 25')
