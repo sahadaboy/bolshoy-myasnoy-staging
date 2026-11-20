@@ -55,6 +55,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'storefront.session_middleware.CustomerSessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -152,6 +153,11 @@ PICKUP_ADDRESS = 'Севастополь, Камышовое шоссе, 25'
 DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+MINIAPP_SESSION_COOKIE_NAME = 'bm_customer'
+MINIAPP_SESSION_AGE = int(os.environ.get('MINIAPP_SESSION_AGE', '1209600'))
+if not 3600 <= MINIAPP_SESSION_AGE <= 2592000:
+    raise ImproperlyConfigured('MINIAPP_SESSION_AGE must be between 3600 and 2592000 seconds.')
 CSRF_COOKIE_HTTPONLY = True
 if os.environ.get('DJANGO_TRUST_PROXY', '0') == '1':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

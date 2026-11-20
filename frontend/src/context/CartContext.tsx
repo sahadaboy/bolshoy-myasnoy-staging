@@ -8,6 +8,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { CartItem, Product } from '../types';
+import { useSession } from './SessionContext';
+import { CartSync, type CartViewState } from '../lib/cartSync';
+import { readServerCart, writeServerCart } from '../lib/serverCart';
 import {
   addQuantities,
   lineTotal,
@@ -20,6 +23,12 @@ const STORAGE_KEY = 'bolshoy-myasnoy.cart.v1';
 const MAX_STORED_ITEMS = 6000;
 
 interface CartContextValue {
+  syncStatus: CartViewState['status'];
+  syncError: string;
+  retrySync: () => void;
+  resolveSync: (mine: boolean) => void;
+  flush: () => Promise<CartItem[]>;
+  orderSaved: (submitted: CartItem[]) => void;
   items: CartItem[];
   add: (product: Product, quantity?: number) => boolean;
   addMany: (items: CartItem[]) => boolean;
@@ -97,26 +106,76 @@ function loadCart(): { items: CartItem[]; storageIssue: boolean } {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const session = useSession();
   const [initial] = useState(loadCart);
   const [items, setItems] = useState<CartItem[]>(initial.items);
   const [storageIssue, setStorageIssue] = useState(initial.storageIssue);
   const itemsRef = useRef(items);
-
-  const commit = useCallback((next: CartItem[]): boolean => {
-    if (!Number.isSafeInteger(total(next))) return false;
-    itemsRef.current = next;
-    setItems(next);
-    return true;
-  }, []);
-
+  const [syncState, setSyncState] = useState<Pick<CartViewState, 'status' | 'error'>>({
+    status: 'loading',
+    error: '',
+  });
+  const [engine] = useState(
+    () =>
+      new CartSync(
+        {
+          getItem: (key) => localStorage.getItem(key),
+          setItem: (key, value) => localStorage.setItem(key, value),
+          removeItem: (key) => localStorage.removeItem(key),
+        },
+        (raw) =>
+          Array.isArray(raw)
+            ? raw.filter(
+                (item) =>
+                  item &&
+                  isProduct(item.product) &&
+                  Number.isSafeInteger(item.quantity) &&
+                  item.quantity > 0,
+              )
+            : [],
+        readServerCart,
+        writeServerCart,
+        (view) => {
+          itemsRef.current = view.items;
+          setItems(view.items);
+          setSyncState({ status: view.status, error: view.error });
+        },
+        () => setStorageIssue(true),
+      ),
+  );
+  const owner = session.data?.authenticated ? session.data.user?.id : undefined;
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      setStorageIssue(false);
-    } catch {
-      setStorageIssue(true);
-    }
-  }, [items]);
+    if (owner) engine.activate(owner);
+    else if (session.data && !session.data.authenticated) engine.activate('guest');
+    else if (session.error) engine.pause(session.authenticationRequired);
+  }, [owner, session.data?.authenticated, session.error, session.authenticationRequired, engine]);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void engine.sync();
+    };
+    const timer = setInterval(refresh, 5000);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      engine.dispose();
+    };
+  }, [engine]);
+
+  const commit = useCallback(
+    (next: CartItem[]): boolean => {
+      if (!Number.isSafeInteger(total(next))) return false;
+      itemsRef.current = next;
+      setItems(next);
+      engine.edit(next);
+      return true;
+    },
+    [engine],
+  );
 
   const setQuantity = useCallback(
     (product: Product, requested: number): boolean => {
@@ -212,27 +271,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
           next.push(item);
           continue;
         }
-        const quantity = normalizeQuantity(product, item.quantity);
-        if (!quantity) {
-          changed = true;
-          continue;
-        }
+        const quantity = item.quantity;
+        const currentProduct =
+          normalizeQuantity(product, quantity) === quantity
+            ? product
+            : { ...product, is_available: false };
         if (
           quantity !== item.quantity ||
-          JSON.stringify(product) !== JSON.stringify(item.product)
+          JSON.stringify(currentProduct) !== JSON.stringify(item.product)
         ) {
           changed = true;
-          next.push({ product, quantity });
+          next.push({ product: currentProduct, quantity });
         } else next.push(item);
       }
-      if (changed) commit(next);
+      if (changed) engine.metadata(next);
     },
-    [commit],
+    [engine],
   );
 
   return (
     <CartContext.Provider
       value={{
+        syncStatus: syncState.status,
+        syncError: syncState.error,
+        retrySync: () => void engine.sync(),
+        resolveSync: (mine) => engine.resolve(mine),
+        flush: () => engine.flush(),
+        orderSaved: (submitted) => engine.orderSaved(submitted),
         items,
         add,
         addMany,

@@ -296,3 +296,4 @@ class OrderItem(models.Model):
 from .experience_models import (StoreProfile, StorePhoto, DinnerSettings, DinnerQuestion,
                                 DinnerOption, PantryIngredient, DinnerRecipe)  # noqa: E402,F401
 from .customer_models import Customer, OrderStatusEvent, OrderNotification  # noqa: E402,F401
+from .cart_models import CustomerCart, CartOperation  # noqa: E402,F401

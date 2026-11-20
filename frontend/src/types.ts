@@ -168,6 +168,7 @@ export interface DinnerPrepared {
 }
 
 export interface Session {
+  csrf_token?: string;
   authenticated: boolean;
   user: {
     id: string;

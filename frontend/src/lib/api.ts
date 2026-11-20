@@ -9,7 +9,6 @@ import type {
   OrderSummary,
   PaginatedResponse,
   Product,
-  Session,
   Storefront,
   StoreProfile,
   DinnerSchema,
@@ -17,7 +16,7 @@ import type {
   DinnerIdea,
   DinnerPrepared,
 } from '../types';
-import { loadTelegramWebApp } from './telegram';
+import { customerFetch, restoreCustomerSession } from './customerSession';
 
 export interface ProductPage {
   count: number;
@@ -61,13 +60,12 @@ export async function get<T>(
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await customerFetch(path, {
       ...init,
       signal,
       credentials: 'omit',
       headers: {
         Accept: 'application/json',
-        ...privateHeaders(path),
         ...init?.headers,
       },
     });
@@ -264,9 +262,8 @@ export const fetchIdeas = (params: URLSearchParams, signal?: AbortSignal) =>
   get<IdeasResponse>(`/api/ideas/${params.size ? `?${params}` : ''}`, signal);
 export const fetchArticle = (slug: string, signal?: AbortSignal) =>
   get<Article>(`/api/ideas/${encodeURIComponent(slug)}/`, signal);
-export const fetchSession = async (signal?: AbortSignal) => {
-  await loadTelegramWebApp();
-  return get<Session>('/api/session/', signal);
+export const fetchSession = async (_signal?: AbortSignal) => {
+  return restoreCustomerSession();
 };
 export async function updateCustomerPhone(phone: string) {
   const controller = new AbortController();
@@ -306,25 +303,18 @@ export const fetchOrders = (page = 1, signal?: AbortSignal) =>
 export const fetchOrder = (id: string, signal?: AbortSignal) =>
   get<Order>(`/api/orders/${encodeURIComponent(id)}/`, signal);
 
-function privateHeaders(path: string): Record<string, string> {
-  if (!/^\/api\/(session|orders|profile)(\/|$)/.test(path)) return {};
-  const raw = window.Telegram?.WebApp?.initData;
-  return typeof raw === 'string' && raw ? { Authorization: `tma ${raw}` } : {};
-}
-
 /** Orders use a bounded response, a timeout, and the same signed Telegram data. */
 export async function createOrder(body: OrderRequest): Promise<Order> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 30_000);
   try {
-    const response = await fetch('/api/orders/', {
+    const response = await customerFetch('/api/orders/', {
       method: 'POST',
       credentials: 'omit',
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        ...privateHeaders('/api/orders/'),
       },
       body: JSON.stringify(body),
     });

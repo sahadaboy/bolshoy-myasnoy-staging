@@ -30,11 +30,12 @@ export function liveRoute(
     );
   const write =
     (method === 'PATCH' && path === '/api/profile/') ||
+    (method === 'POST' && ['/api/cart/', '/api/session/login/', '/api/profile/'].includes(path)) ||
     (method === 'POST' &&
       /^\/api\/(?:orders|orders\/[a-f0-9-]{36}\/repeat|dinner\/(suggestions|prepare))\/$/.test(
         path,
       ));
-  if ((read && method === 'GET') || write) return 'api';
+  if (((read || path === '/api/cart/') && method === 'GET') || write) return 'api';
   if (!/^(GET|HEAD)$/.test(method)) return;
   if (files.has(path) || /^\/brand\/(telegram|vk)\.svg$/.test(path)) return 'file';
   if (
@@ -78,7 +79,8 @@ export function liveGateway(hostname: string, target: string): Plugin {
         );
         const host = req.headers.host || '';
         const address = server.httpServer.address();
-        const port = address && typeof address !== 'string' ? address.port : server.config.preview.port;
+        const port =
+          address && typeof address !== 'string' ? address.port : server.config.preview.port;
         if (![hostname, `127.0.0.1:${port}`, `localhost:${port}`].includes(host))
           return fail(res, 403);
         if (
@@ -116,6 +118,15 @@ export function liveGateway(hostname: string, target: string): Plugin {
             headers['Content-Length'] = String(body.length);
           }
           const authorization = req.headers.authorization;
+          headers.Host = host;
+          if (req.headers.origin) headers.Origin = req.headers.origin;
+          const customerCookies = req.headers.cookie
+            ?.split(';')
+            .map((value) => value.trim())
+            .filter((value) => /^(bm_customer|csrftoken)=/.test(value));
+          if (customerCookies?.length) headers.Cookie = customerCookies.join('; ');
+          if (typeof req.headers['x-csrftoken'] === 'string')
+            headers['X-CSRFToken'] = req.headers['x-csrftoken'];
           if (authorization) {
             if (!/^tma /i.test(authorization) || authorization.length > 17000)
               return fail(res, 401);
@@ -160,6 +171,10 @@ export function liveGateway(hostname: string, target: string): Plugin {
                 }
                 res.statusCode = upstream.statusCode!;
                 res.setHeader('Content-Type', type);
+                const customerSetCookies = upstream.headers['set-cookie']?.filter((value) =>
+                  /^(bm_customer|csrftoken)=/.test(value),
+                );
+                if (customerSetCookies?.length) res.setHeader('Set-Cookie', customerSetCookies);
                 if (upstream.statusCode === 401) res.setHeader('WWW-Authenticate', 'tma');
                 res.end(req.method === 'HEAD' ? undefined : output);
               });

@@ -1,4 +1,5 @@
 from django.urls import path
+from .cart_api import CartView
 from . import api
 from . import order_api
 from . import experience_api
@@ -16,6 +17,8 @@ urlpatterns = [
     path('ideas/<slug:slug>/', api.ArticleDetailView.as_view()),
     path('session/', order_api.SessionView.as_view()),
     path('profile/', order_api.CustomerProfileView.as_view()),
+    path('session/login/', order_api.SessionLoginView.as_view()),
+    path('cart/', CartView.as_view()),
     path('orders/', order_api.OrderListCreateView.as_view()),
     path('orders/<uuid:order_id>/', order_api.OrderDetailView.as_view()),
     path('orders/<uuid:order_id>/repeat/', order_api.RepeatOrderView.as_view()),

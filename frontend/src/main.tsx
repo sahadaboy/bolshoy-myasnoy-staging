@@ -14,11 +14,11 @@ void loadTelegramWebApp().then(() =>
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <BrowserRouter>
-        <CartProvider>
-          <SessionProvider>
+        <SessionProvider>
+          <CartProvider>
             <App />
-          </SessionProvider>
-        </CartProvider>
+          </CartProvider>
+        </SessionProvider>
       </BrowserRouter>
     </React.StrictMode>,
   ),
