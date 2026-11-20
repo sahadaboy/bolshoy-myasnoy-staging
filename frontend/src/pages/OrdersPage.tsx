@@ -2,7 +2,9 @@ import { useCallback } from 'react';
 import { ReceiptText, RefreshCw } from 'lucide-react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
-import { useResource } from '../hooks/useResource';
+import { useOrderResource as useResource } from '../hooks/useOrderResource';
+import { pickupLabel } from '../lib/pickup';
+import '../pickup.css';
 import { fetchOrder, fetchOrders } from '../lib/api';
 import { formatMoney, formatQuantity, priceKopecks, quantityThousandths } from '../lib/quantity';
 import { BackLink } from '../components/Retail';
@@ -35,15 +37,26 @@ function GuestOrders() {
 }
 
 export function OrdersPage() {
-  const session = useSession();
+  const sessionState = useSession();
+  const session = {
+    ...sessionState,
+    loading: sessionState.loading && !sessionState.data,
+    error: sessionState.data ? null : sessionState.error,
+  };
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Math.floor(Number(params.get('page')) || 1));
   const authenticated = !!session.data?.authenticated;
   const load = useCallback(
     (signal: AbortSignal) => (authenticated ? fetchOrders(page, signal) : Promise.resolve(null)),
-    [page, authenticated],
+    [page, authenticated, session.data?.user?.id],
   );
-  const resource = useResource(load);
+  const resource = useResource(
+    load,
+    `${session.data?.user?.id}:history:${page}`,
+    authenticated,
+    (result) =>
+      !!result?.results.some((order) => !['collected', 'cancelled'].includes(order.status)),
+  );
   return (
     <>
       <BackLink fallback="/profile" />
@@ -75,8 +88,11 @@ export function OrdersPage() {
           <div className="retail-orders">
             {resource.data.results.map((order) => (
               <Link key={order.id} to={`/profile/orders/${order.id}`}>
-                <span className="retail-order-status">{order.status_label}</span>
+                <span className="retail-order-status">
+                  {order.status === 'new' ? 'Ожидает подтверждения оператора' : order.status_label}
+                </span>
                 <strong>{order.number}</strong>
+                {order.pickup_at && <span>Забрать: {pickupLabel(order.pickup_at)}</span>}
                 <span>{date.format(new Date(order.created_at))}</span>
                 <div>
                   <span>Позиций: {order.item_count}</span>
@@ -111,14 +127,24 @@ export function OrdersPage() {
 
 export function OrderPage() {
   const { id = '' } = useParams();
-  const session = useSession();
+  const sessionState = useSession();
+  const session = {
+    ...sessionState,
+    loading: sessionState.loading && !sessionState.data,
+    error: sessionState.data ? null : sessionState.error,
+  };
   const location = useLocation();
   const authenticated = !!session.data?.authenticated;
   const load = useCallback(
     (signal: AbortSignal) => (authenticated ? fetchOrder(id, signal) : Promise.resolve(null)),
-    [id, authenticated],
+    [id, authenticated, session.data?.user?.id],
   );
-  const resource = useResource(load);
+  const resource = useResource(
+    load,
+    `${session.data?.user?.id}:${id}`,
+    authenticated,
+    (result) => !!result && !['collected', 'cancelled'].includes(result.status),
+  );
   const order = resource.data;
   return (
     <>
@@ -145,15 +171,29 @@ export function OrderPage() {
             <p>{order.number}</p>
           </div>
           <div className="retail-order-state">
-            <span>{order.status_label}</span>
+            <span>
+              {order.status === 'new' ? 'Ожидает подтверждения оператора' : order.status_label}
+            </span>
             <button onClick={resource.retry} aria-label="Обновить статус заказа">
               <RefreshCw size={18} />
             </button>
           </div>
+          {order.status === 'confirmed' && (
+            <div className="order-accepted" role="status">
+              <strong>✅ Ваш заказ принят!</strong>
+              <p>Оператор подтвердил ваш заказ. Мы приступаем к его подготовке</p>
+            </div>
+          )}
+          {resource.refreshError && (
+            <p role="status" className="inline-notice">
+              Не удалось обновить статус. Повторим проверку при восстановлении соединения.
+            </p>
+          )}
           <p className="retail-subtitle">{date.format(new Date(order.created_at))}</p>
           <section>
             <h2>Самовывоз</h2>
             <p>{order.pickup_address}</p>
+            {order.pickup_at && <p>Желаемое время: {pickupLabel(order.pickup_at)}</p>}
           </section>
           <section>
             <h2>Состав заказа</h2>

@@ -59,6 +59,7 @@ class OrderNotification(models.Model):
     telegram_message_ids = models.JSONField(default=list, blank=True)
     sent_parts = models.PositiveIntegerField(default=0)
     payload_parts = models.JSONField(default=list, blank=True)
+    payload_format = models.CharField(max_length=8, choices=[('plain','Текст'),('html','HTML')], default='plain')
     destination = models.CharField(max_length=100, blank=True)
 
     class Meta:

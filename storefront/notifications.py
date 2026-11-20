@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.views.decorators.debug import sensitive_variables
 from .models import OrderNotification
 
 
@@ -16,8 +17,9 @@ class DeliveryError(Exception):
         super().__init__(message); self.uncertain = uncertain; self.retryable = retryable
 
 
+@sensitive_variables()
 def telegram_call(method, data, *, timeout=10):
-    if method not in ('sendMessage', 'getMe', 'getChat', 'getChatMember', 'getUpdates', 'getWebhookInfo', 'setChatMenuButton', 'getChatMenuButton'):
+    if method not in ('sendMessage', 'getMe', 'getChat', 'getChatMember', 'getUpdates', 'getWebhookInfo', 'setWebhook', 'setChatMenuButton', 'getChatMenuButton', 'editMessageText', 'editMessageReplyMarkup', 'answerCallbackQuery'):
         raise ValueError('Unsupported Telegram method')
     request = Request(f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/{method}',
         data=json.dumps(data).encode(), headers={'Content-Type': 'application/json'}, method='POST')
@@ -25,6 +27,11 @@ def telegram_call(method, data, *, timeout=10):
         with urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read(65536))
     except HTTPError as exc:
+        if exc.code == 400 and method in ('editMessageText','editMessageReplyMarkup'):
+            try:
+                description=json.loads(exc.read(8192)).get('description','').lower()
+                if description.startswith('bad request: message is not modified'): return True
+            except (ValueError,AttributeError): pass
         hints = {400: 'Проверьте chat ID и тип группы.', 401: 'Проверьте серверный токен бота.',
                  403: 'Добавьте бота в группу и разрешите отправку сообщений.',
                  409: 'Уже работает другой получатель обновлений; не отключайте его.',
@@ -39,18 +46,7 @@ def telegram_call(method, data, *, timeout=10):
     return payload['result']
 
 
-def message_parts(order):
-    header = f'НОВЫЙ ЗАКАЗ №{order.number}\n\nПокупатель: {order.buyer_name}\nТелефон: {order.phone}\n\nСостав заказа:\n'
-    lines = [f'• {item.product_name} — {item.quantity.normalize():f} {"кг" if item.unit == "kg" else "шт."} — {item.subtotal:.2f} ₽\n' for item in order.items.all()]
-    estimate = '\nСумма уточняется после фактического взвешивания.' if order.weight_estimate else ''
-    footer = f'\nИтого: {order.total:.2f} ₽{estimate}\nСамовывоз: {order.pickup_address}\nКомментарий: {order.comment or "—"}\nДата и время: {timezone.localtime(order.created_at):%d.%m.%Y %H:%M}'
-    parts, current = [], header
-    for text in [*lines, footer]:
-        if len((current + text).encode('utf-16-le')) // 2 > 3500:
-            parts.append(current); current = f'ЗАКАЗ №{order.number} · продолжение\n'
-        current += text
-    parts.append(current)
-    return parts
+from .order_messages import message_parts
 
 
 def deliver_one(pk, *, time_budget=8):
@@ -70,10 +66,11 @@ def deliver_one(pk, *, time_budget=8):
             return False
         if not row.payload_parts:
             row.payload_parts = message_parts(row.order)
+            row.payload_format = 'html'
             row.destination = settings.TELEGRAM_ADMIN_CHAT_ID
         row.attempts += 1
         OrderNotification.objects.filter(pk=pk, claim_id=claim).update(
-            payload_parts=row.payload_parts, destination=row.destination, attempts=row.attempts)
+            payload_parts=row.payload_parts, payload_format=row.payload_format, destination=row.destination, attempts=row.attempts)
     try:
         ids = list(row.telegram_message_ids)
         for index in range(row.sent_parts, len(row.payload_parts)):
@@ -85,9 +82,10 @@ def deliver_one(pk, *, time_budget=8):
                     next_attempt_at=timezone.now(), last_error='Требуется отправить оставшиеся части из Admin.')
                 return False
             data = {'chat_id': row.destination, 'text': row.payload_parts[index], 'link_preview_options': {'is_disabled': True}}
-            if settings.MINIAPP_ADMIN_URL and settings.MINIAPP_ADMIN_URL.startswith('https://'):
-                data['reply_markup'] = {'inline_keyboard': [[{'text': 'Открыть заказ в Admin',
-                    'url': f'{settings.MINIAPP_ADMIN_URL}/admin/storefront/order/{row.order_id}/change/'}]]}
+            if row.payload_format == 'html': data['parse_mode'] = 'HTML'
+            from .order_acceptance import notification_markup
+            markup = notification_markup(row, index)
+            if markup['inline_keyboard']: data['reply_markup'] = markup
             result = telegram_call('sendMessage', data, timeout=min(4, remaining))
             if not isinstance(result, dict) or not isinstance(result.get('message_id'), int):
                 raise DeliveryError('Telegram не подтвердил ID сообщения', uncertain=True)

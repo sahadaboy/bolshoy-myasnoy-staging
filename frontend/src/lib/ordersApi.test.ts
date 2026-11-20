@@ -3,6 +3,7 @@ import { createOrder, fetchSession, updateCustomerPhone } from './api';
 import type { OrderRequest } from '../types';
 
 const body: OrderRequest = {
+  pickup_at: '2026-11-22T14:30:00+03:00',
   request_id: '00000000-0000-4000-8000-000000000001',
   buyer_name: 'Тест',
   phone: '+79001234567',

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -92,7 +93,7 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     class Meta:
         model = Order
-        fields = ['id', 'number', 'created_at', 'buyer_name', 'phone', 'comment', 'pickup_address', 'total', 'weight_estimate', 'status', 'status_label', 'fulfillment', 'items']
+        fields = ['id', 'number', 'created_at', 'buyer_name', 'phone', 'comment', 'pickup_address', 'pickup_at', 'total', 'weight_estimate', 'status', 'status_label', 'fulfillment', 'items']
 
 
 class OrderSummarySerializer(serializers.ModelSerializer):
@@ -101,7 +102,7 @@ class OrderSummarySerializer(serializers.ModelSerializer):
     item_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = Order
-        fields = ['id', 'number', 'created_at', 'total', 'status', 'status_label', 'item_count']
+        fields = ['id', 'number', 'created_at', 'pickup_at', 'total', 'status', 'status_label', 'item_count']
 
 
 class RequestItemSerializer(serializers.Serializer):
@@ -111,6 +112,7 @@ class RequestItemSerializer(serializers.Serializer):
 
 
 class OrderRequestSerializer(serializers.Serializer):
+    pickup_at = serializers.DateTimeField(required=False)
     request_id = serializers.UUIDField()
     buyer_name = serializers.CharField(max_length=100, trim_whitespace=True)
     phone = serializers.CharField(max_length=32)
@@ -120,6 +122,16 @@ class OrderRequestSerializer(serializers.Serializer):
 
     def validate_phone(self, value):
         return normalize_phone(value)
+
+    def validate_pickup_at(self, value):
+        from django.utils.dateparse import parse_datetime
+        raw = self.initial_data.get('pickup_at')
+        try:
+            parsed = parse_datetime(raw) if isinstance(raw,str) else raw
+            if parsed is None or timezone.is_naive(parsed): raise ValueError
+        except (ValueError,TypeError):
+            raise serializers.ValidationError('Укажите время с часовым поясом магазина.') from None
+        return value
 
     def validate_items(self, items):
         if len({item['product_id'] for item in items}) != len(items):
@@ -146,6 +158,9 @@ class OrderThrottle(SimpleRateThrottle):
 
 def fingerprint(data):
     payload = [data['buyer_name'], data['phone'], data['comment'], sorted((item['product_id'], format(item['quantity'], '.3f')) for item in data['items'])]
+    if data.get('pickup_at') is not None:
+        from datetime import timezone as dt_timezone
+        payload.append(data['pickup_at'].astimezone(dt_timezone.utc).isoformat())
     return sha256(json.dumps(payload, ensure_ascii=True, separators=(',', ':')).encode()).hexdigest()
 
 
@@ -193,6 +208,13 @@ class OrderListCreateView(PrivateAPI):
             raise OrdersUnavailable()
         try:
             with transaction.atomic():
+                from .pickup import validate_pickup
+                profile = StoreProfile.objects.select_for_update().filter(pk=1).first()
+                existing = repeated_order(request.user.id, data['request_id'], signature)
+                if existing:
+                    return Response(OrderSerializer(existing).data, status=200)
+                if data.get('pickup_at') is None:
+                    validate_pickup(None, profile)
                 products = {product.pk: product for product in Product.objects.select_for_update().filter(pk__in=[item['product_id'] for item in data['items']])}
                 lines = []
                 for item in data['items']:
@@ -211,7 +233,9 @@ class OrderListCreateView(PrivateAPI):
                 if not Decimal('0') <= total <= Decimal('9999999999.99'):
                     raise ValidationError({'items': 'Сумма заявки слишком велика. Уменьшите количество.'})
                 customer = Customer.objects.select_for_update().get(pk=request.customer.pk)
-                order = Order.objects.create(customer=customer, fulfillment=data['fulfillment'], telegram_user_id=request.user.id, request_id=data['request_id'], request_fingerprint=signature, buyer_name=data['buyer_name'], phone=data['phone'], comment=data['comment'], pickup_address=settings.PICKUP_ADDRESS, total=total, weight_estimate=settings.MINIAPP_WEIGHT_ESTIMATE and any(line.unit == 'kg' for line in lines))
+                created_at = timezone.now()
+                validate_pickup(data['pickup_at'], profile, now=created_at)
+                order = Order.objects.create(customer=customer, created_at=created_at, fulfillment=data['fulfillment'], pickup_at=data['pickup_at'], telegram_user_id=request.user.id, request_id=data['request_id'], request_fingerprint=signature, buyer_name=data['buyer_name'], phone=data['phone'], comment=data['comment'], pickup_address=settings.PICKUP_ADDRESS, total=total, weight_estimate=settings.MINIAPP_WEIGHT_ESTIMATE and any(line.unit == 'kg' for line in lines))
                 for line in lines:
                     line.order = order
                 OrderItem.objects.bulk_create(lines)

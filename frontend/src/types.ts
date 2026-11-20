@@ -186,6 +186,7 @@ export interface Session {
   store: { address: string; phone: string | null; email: string | null };
 }
 export interface OrderSummary {
+  pickup_at?: string | null;
   id: string;
   number: string;
   created_at: string;
@@ -211,6 +212,7 @@ export interface Order extends Omit<OrderSummary, 'item_count'> {
   }[];
 }
 export interface OrderRequest {
+  pickup_at: string;
   fulfillment?: 'pickup';
   request_id: string;
   buyer_name: string;

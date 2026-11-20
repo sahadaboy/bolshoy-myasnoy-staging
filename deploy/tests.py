@@ -101,6 +101,9 @@ class StagingBoundaryTests(SimpleTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertIsNone(response.get('X-Frame-Options'))
                 response.close()
+                response = self.client.get('/profile/orders/22222222-2222-4222-8222-222222222222/success')
+                self.assertEqual(response.status_code, 200)
+                response.close()
                 for path in ('/.env', '/db.sqlite3', '/src/main.tsx', '/api/private/', '/media/products/a.png', '/backups/a.zip'):
                     self.assertEqual(self.client.get(path).status_code, 404, path)
 

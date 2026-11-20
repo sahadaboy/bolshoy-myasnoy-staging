@@ -1,3 +1,4 @@
+from ._test_pickup_fixtures import available_pickup
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest import skipUnless
@@ -18,7 +19,7 @@ class ConcurrentCheckoutTests(TransactionTestCase):
         cache.clear()
         product=Product.objects.create(name='Тестовый товар',sku='concurrent-test',price='100',unit='pcs')
         Customer.objects.create(telegram_id=7001,first_name='Анна')
-        payload={'request_id':str(uuid4()),'buyer_name':'Проверка','phone':'+70000000000',
+        payload={'pickup_at': available_pickup(), 'request_id':str(uuid4()),'buyer_name':'Проверка','phone':'+70000000000',
             'items':[{'product_id':product.pk,'quantity':'1','expected_price':'100'}]}
         barrier=Barrier(2)
         def submit():

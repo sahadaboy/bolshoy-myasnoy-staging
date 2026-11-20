@@ -14,6 +14,11 @@ class StorePhotoSerializer(serializers.ModelSerializer):
 
 
 class StoreProfileSerializer(serializers.ModelSerializer):
+    opening_hours = serializers.SerializerMethodField()
+
+    def get_opening_hours(self, obj):
+        from .pickup import opening_text
+        return opening_text(obj)
     photos = StorePhotoSerializer(source='live_photos', many=True, read_only=True)
 
     class Meta:
@@ -30,6 +35,14 @@ class StoreProfileView(APIView):
             profile = StoreProfile(address='Севастополь, Камышовое шоссе, 25')
             profile.live_photos = []
         return Response(StoreProfileSerializer(profile, context={'request': request}).data)
+
+
+class PickupSlotsView(APIView):
+    def get(self, request):
+        from .pickup import slots
+        response = Response(slots())
+        response['Cache-Control'] = 'no-store'
+        return response
 
 
 class DinnerThrottle(SimpleRateThrottle):

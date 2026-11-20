@@ -1,3 +1,4 @@
+from ._test_pickup_fixtures import available_pickup
 from datetime import timedelta
 from uuid import uuid4
 import time
@@ -151,7 +152,7 @@ class SessionCartTests(TestCase):
 
     def test_successful_order_consumes_matching_cart_only_and_retry_does_not_clear_new_items(self):
         self.post(self.a,[self.line()])
-        payload={'request_id':str(uuid4()),'buyer_name':'Тест','phone':'+79780000001','items':[{'product_id':self.p.pk,'quantity':'2','expected_price':'100'}]}
+        payload={'pickup_at': available_pickup(), 'request_id':str(uuid4()),'buyer_name':'Тест','phone':'+79780000001','items':[{'product_id':self.p.pk,'quantity':'2','expected_price':'100'}]}
         result=self.a.post('/api/orders/',payload,format='json');self.assertEqual(result.status_code,201,result.data)
         self.assertEqual(self.a.get('/api/cart/').data['items'],[])
         revision=self.a.get('/api/cart/').data['revision']
@@ -163,7 +164,7 @@ class SessionCartTests(TestCase):
 
     def test_failed_order_and_different_device_quantity_preserve_cart(self):
         self.post(self.a,[self.line(q='3')])
-        payload={'request_id':str(uuid4()),'buyer_name':'Тест','phone':'+79780000001','items':[{'product_id':self.p.pk,'quantity':'2','expected_price':'999'}]}
+        payload={'pickup_at': available_pickup(), 'request_id':str(uuid4()),'buyer_name':'Тест','phone':'+79780000001','items':[{'product_id':self.p.pk,'quantity':'2','expected_price':'999'}]}
         self.assertEqual(self.a.post('/api/orders/',payload,format='json').status_code,409)
         self.assertEqual(self.a.get('/api/cart/').data['items'][0]['quantity'],'3.000')
 

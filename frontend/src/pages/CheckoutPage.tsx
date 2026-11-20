@@ -1,3 +1,5 @@
+import { PickupPicker } from '../components/PickupPicker';
+import '../pickup.css';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown, MapPin } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -20,6 +22,8 @@ export default function CheckoutPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [comment, setComment] = useState('');
+  const [pickupAt, setPickupAt] = useState('');
+  const [pickupRefresh, setPickupRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const [error, setError] = useState('');
@@ -34,6 +38,7 @@ export default function CheckoutPage() {
       );
   }, [session.data]);
   const ready =
+    !!pickupAt &&
     !!session.data?.checkout_enabled &&
     session.data.authenticated &&
     cart.syncStatus === 'synced' &&
@@ -60,6 +65,7 @@ export default function CheckoutPage() {
         name: name.trim(),
         phone: phone.trim(),
         comment: comment.trim(),
+        pickup_at: pickupAt,
         items,
       });
       const order = await createOrder({
@@ -68,17 +74,19 @@ export default function CheckoutPage() {
         buyer_name: name.trim(),
         phone: phone.trim(),
         comment: comment.trim(),
+        pickup_at: pickupAt,
         items,
       });
       cart.orderSaved(submitted);
       finishOrderRequest();
       session.retry();
-      navigate(`/profile/orders/${order.id}`, {
+      navigate(`/profile/orders/${order.id}/success`, {
         replace: true,
         state: { created: true },
       });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить заявку.');
+      setPickupRefresh((n) => n + 1);
       if (reason instanceof ApiError && (reason.status === 409 || reason.status === 400))
         validation.retry();
     } finally {
@@ -139,6 +147,7 @@ export default function CheckoutPage() {
                 Стоимость весовых товаров и итог уточняются после фактического взвешивания.
               </p>
             )}
+          <PickupPicker value={pickupAt} onChange={setPickupAt} refresh={pickupRefresh} />
           <label>
             Ваше имя
             <input

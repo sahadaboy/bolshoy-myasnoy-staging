@@ -23,6 +23,7 @@ const ArticlePage = lazy(() => import('./pages/ArticlePage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const ProfileInfoPage = lazy(() => import('./pages/ProfileInfoPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
+const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'));
 const OrdersPage = lazy(() =>
   import('./pages/OrdersPage').then((module) => ({
     default: module.OrdersPage,
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="profile/orders" element={<OrdersPage />} />
           <Route path="profile/orders/:id" element={<OrderPage />} />
+          <Route path="profile/orders/:id/success" element={<OrderSuccessPage />} />
           <Route path="profile/store" element={<Navigate to="/about" replace />} />
           <Route path="profile/about" element={<Navigate to="/about" replace />} />
           <Route path="profile/contacts" element={<Navigate to="/about" replace />} />

@@ -3,8 +3,11 @@ from .cart_api import CartView
 from . import api
 from . import order_api
 from . import experience_api
+from .telegram_webhook import webhook
 
 urlpatterns = [
+    path('telegram/order-webhook/', webhook),
+    path('pickup-slots/', experience_api.PickupSlotsView.as_view()),
     path('categories/', api.CategoryListView.as_view()),
     path('banners/', api.BannerListView.as_view()),
     path('storefront/', api.StorefrontView.as_view()),

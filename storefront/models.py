@@ -263,6 +263,7 @@ class Order(models.Model):
     phone = models.CharField('Контактный номер', max_length=20)
     comment = models.TextField('Комментарий', blank=True, max_length=1000)
     pickup_address = models.CharField('Адрес самовывоза', max_length=200)
+    pickup_at = models.DateTimeField('Желаемое время самовывоза', null=True, blank=True)
     total = models.DecimalField('Сумма', max_digits=14, decimal_places=2)
     weight_estimate = models.BooleanField('Сумма уточняется по фактическому весу', default=False)
     status = models.CharField('Статус', max_length=16, choices=Status.choices, default=Status.NEW)
@@ -297,3 +298,4 @@ from .experience_models import (StoreProfile, StorePhoto, DinnerSettings, Dinner
                                 DinnerOption, PantryIngredient, DinnerRecipe)  # noqa: E402,F401
 from .customer_models import Customer, OrderStatusEvent, OrderNotification  # noqa: E402,F401
 from .cart_models import CustomerCart, CartOperation  # noqa: E402,F401
+from .pickup_models import StoreOpeningInterval, OrderAcceptance, TelegramCallbackReceipt  # noqa: E402,F401
