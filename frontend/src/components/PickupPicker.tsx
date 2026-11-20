@@ -24,6 +24,7 @@ export function PickupPicker({
 }) {
   const resource = useResource(fetchPickupCalendar);
   const reference = useRef<HTMLDialogElement>(null);
+  const field = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState({ date: '', at: '' });
@@ -69,7 +70,6 @@ export function PickupPicker({
     if (!open) return;
     const previous = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    reference.current?.showModal();
     reference.current
       ?.querySelector('[aria-pressed="true"]')
       ?.scrollIntoView({ inline: 'center', block: 'nearest' });
@@ -105,6 +105,8 @@ export function PickupPicker({
       nearestPickupSlot(availablePickupSlots(selectedDay));
     setDraft({ date: selectedDay?.date || '', at: selected?.at || '' });
     setMoving({ hour: false, minute: false });
+    // Hidden dialogs cannot retain wheel scroll offsets. Mount wheels only after opening.
+    reference.current?.showModal();
     setOpen(true);
     resource.retry();
   };
@@ -114,6 +116,7 @@ export function PickupPicker({
       <button
         type="button"
         className="pickup-field"
+        ref={field}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={show}
@@ -135,7 +138,10 @@ export function PickupPicker({
         ref={reference}
         className="app-dialog pickup-sheet"
         aria-labelledby={titleId}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          field.current?.focus({ preventScroll: true });
+        }}
         onClick={(event) => {
           if (event.target === event.currentTarget) reference.current?.close();
         }}
