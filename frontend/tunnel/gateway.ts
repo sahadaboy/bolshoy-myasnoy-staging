@@ -11,7 +11,7 @@ const MAX_IMAGE = 16 * 1024 * 1024;
 /** Only intentionally published build files, never arbitrary public/repository files. */
 export function publicFiles(dist: string): Set<string> {
   const files = new Set<string>();
-  for (const path of ['index.html', 'brand-logo-original.png', 'image-credits.txt', 'fonts/Manrope-OFL.txt']) {
+  for (const path of ['index.html', 'boot.js', 'boot.css', 'brand-logo-original.png', 'image-credits.txt', 'fonts/Manrope-OFL.txt']) {
     if (existsSync(join(dist, path))) files.add(`/${path}`);
   }
   for (const folder of ['assets', 'categories']) {
