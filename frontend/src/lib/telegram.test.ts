@@ -18,6 +18,9 @@ function webApp(overrides: Partial<TelegramWebApp> = {}): TelegramWebApp {
     version: '8.0',
     ready: vi.fn(),
     expand: vi.fn(),
+    requestFullscreen: vi.fn(),
+    disableVerticalSwipes: vi.fn(),
+    setHeaderColor: vi.fn(),
     onEvent: vi.fn(),
     offEvent: vi.fn(),
     viewportStableHeight: 720,
@@ -70,9 +73,21 @@ describe('Telegram SDK bootstrap and presentation', () => {
   });
 
   it('recognizes documented launch parameters without requiring user data', () => {
-    expect(hasTelegramLaunchParameters({ search: '', hash: '#tgWebAppPlatform=ios&tgWebAppVersion=8.0' })).toBe(true);
-    expect(hasTelegramLaunchParameters({ search: '?tgWebAppPlatform=web&tgWebAppVersion=8.0', hash: '' })).toBe(true);
-    expect(hasTelegramLaunchParameters({ search: '?search=сыр', hash: '#description' })).toBe(false);
+    expect(
+      hasTelegramLaunchParameters({
+        search: '',
+        hash: '#tgWebAppPlatform=ios&tgWebAppVersion=8.0',
+      }),
+    ).toBe(true);
+    expect(
+      hasTelegramLaunchParameters({
+        search: '?tgWebAppPlatform=web&tgWebAppVersion=8.0',
+        hash: '',
+      }),
+    ).toBe(true);
+    expect(hasTelegramLaunchParameters({ search: '?search=сыр', hash: '#description' })).toBe(
+      false,
+    );
     expect(isTelegramMiniApp(webApp())).toBe(true);
   });
 
@@ -114,7 +129,16 @@ describe('Telegram SDK bootstrap and presentation', () => {
     expect(values.get('--app-tg-content-top')).toBe('56px');
     expect(values.get('--app-viewport-stable-height')).toBe('720px');
     const subscriptions = vi.mocked(app.onEvent).mock.calls;
-    expect(subscriptions.map(([event]) => event)).toEqual(['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged']);
+    expect(subscriptions.map(([event]) => event)).toEqual([
+      'viewportChanged',
+      'safeAreaChanged',
+      'contentSafeAreaChanged',
+      'fullscreenChanged',
+      'fullscreenFailed',
+    ]);
+    expect(app.disableVerticalSwipes).toHaveBeenCalledTimes(1);
+    expect(app.requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(app.setHeaderColor).toHaveBeenCalledWith('#ffffff');
     app.safeAreaInset = { top: 0, bottom: 34 };
     app.viewportStableHeight = 680;
     subscriptions[1][1]();
@@ -127,6 +151,8 @@ describe('Telegram SDK bootstrap and presentation', () => {
     initializeTelegramAppearance(app, root)();
     expect(app.ready).toHaveBeenCalledTimes(1);
     expect(app.expand).toHaveBeenCalledTimes(1);
+    expect(app.requestFullscreen).toHaveBeenCalledTimes(1);
+    expect(app.disableVerticalSwipes).toHaveBeenCalledTimes(1);
   });
 
   it('guards modern insets on old clients and rejects invalid viewport values', () => {
@@ -139,11 +165,104 @@ describe('Telegram SDK bootstrap and presentation', () => {
     expect(supportsTelegramVersion(app, '6.1')).toBe(true);
     expect(supportsTelegramVersion(webApp({ version: 'invalid' }), '8.0')).toBe(false);
   });
+
+  it('waits for native fullscreen confirmation, updates insets on exit and does not fight user exit', () => {
+    const app = webApp();
+    const { root, values } = cssRoot();
+    const cleanup = initializeTelegramAppearance(app, root);
+    expect(root.dataset.telegramFullscreen).toBe('windowed');
+    app.isFullscreen = true;
+    app.safeAreaInset = { top: 59, bottom: 34 };
+    app.contentSafeAreaInset = { top: 52 };
+    vi.mocked(app.onEvent).mock.calls.find(([event]) => event === 'fullscreenChanged')![1]();
+    expect(root.dataset.telegramFullscreen).toBe('active');
+    expect(values.get('--app-tg-system-top')).toBe('59px');
+    expect(values.get('--app-tg-content-top')).toBe('52px');
+    app.isFullscreen = false;
+    app.contentSafeAreaInset = { top: 0 };
+    vi.mocked(app.onEvent).mock.calls.find(([event]) => event === 'fullscreenChanged')![1]();
+    expect(root.dataset.telegramFullscreen).toBe('windowed');
+    expect(values.get('--app-tg-content-top')).toBe('0px');
+    expect(app.requestFullscreen).toHaveBeenCalledTimes(1);
+    cleanup();
+    expect(root.dataset.telegramFullscreen).toBeUndefined();
+  });
+
+  it('handles native failure, missing methods and thrown unsupported errors without a retry loop', () => {
+    for (const requestFullscreen of [
+      undefined,
+      vi.fn(),
+      vi.fn(() => {
+        throw new Error('unsupported');
+      }),
+    ]) {
+      const app = webApp({ requestFullscreen });
+      const { root } = cssRoot();
+      const cleanup = initializeTelegramAppearance(app, root);
+      vi.mocked(app.onEvent).mock.calls.find(([event]) => event === 'fullscreenFailed')![1]();
+      expect(root.dataset.telegramFullscreen).toBe('windowed');
+      expect(app.expand).toHaveBeenCalledTimes(1);
+      if (requestFullscreen) expect(requestFullscreen).toHaveBeenCalledTimes(1);
+      cleanup();
+    }
+  });
+
+  it('does not request fullscreen when already fullscreen; accepts synchronous native changes', () => {
+    const app = webApp({ isFullscreen: true });
+    const { root } = cssRoot();
+    initializeTelegramAppearance(app, root)();
+    expect(app.requestFullscreen).not.toHaveBeenCalled();
+    const synchronous = webApp();
+    synchronous.requestFullscreen = vi.fn(() => {
+      synchronous.isFullscreen = true;
+    });
+    const cleanup = initializeTelegramAppearance(synchronous, root);
+    expect(root.dataset.telegramFullscreen).toBe('active');
+    cleanup();
+  });
+
+  it('guards each optional capability by version and tolerates swipe/header rejection', () => {
+    for (const version of ['6.1', '7.6', '7.7', '7.10']) {
+      const app = webApp({ version });
+      initializeTelegramAppearance(app, cssRoot().root)();
+      expect(app.requestFullscreen).not.toHaveBeenCalled();
+      expect(vi.mocked(app.onEvent).mock.calls.map(([event]) => event)).toEqual([
+        'viewportChanged',
+      ]);
+      expect(app.disableVerticalSwipes).toHaveBeenCalledTimes(
+        version === '7.7' || version === '7.10' ? 1 : 0,
+      );
+    }
+    const app = webApp({
+      disableVerticalSwipes: vi.fn(() => {
+        throw new Error('unavailable');
+      }),
+      setHeaderColor: vi.fn(() => {
+        throw new Error('unavailable');
+      }),
+    });
+    expect(() => initializeTelegramAppearance(app, cssRoot().root)()).not.toThrow();
+    expect(app.requestFullscreen).toHaveBeenCalledTimes(1);
+  });
+
+  it('sanitizes device insets and clears stale viewport height after an invalid update', () => {
+    const app = webApp({ safeAreaInset: { top: -20, right: Infinity, bottom: Number.NaN } });
+    const { root, values } = cssRoot();
+    const cleanup = initializeTelegramAppearance(app, root);
+    expect(values.get('--app-tg-system-top')).toBe('0px');
+    expect(values.get('--app-tg-system-right')).toBe('0px');
+    expect(values.get('--app-tg-system-bottom')).toBe('0px');
+    app.viewportStableHeight = 0;
+    vi.mocked(app.onEvent).mock.calls[0][1]();
+    expect(values.has('--app-viewport-stable-height')).toBe(false);
+    cleanup();
+  });
 });
 
 describe('Telegram native Back safety', () => {
   it('hides Back on four roots and chooses an internal fallback for direct deep links', () => {
-    for (const path of ['/', '/catalog', '/ideas/', '/cart', '/profile']) expect(telegramBackFallback(path)).toBeNull();
+    for (const path of ['/', '/catalog', '/ideas/', '/cart', '/profile'])
+      expect(telegramBackFallback(path)).toBeNull();
     expect(telegramBackFallback('/product/4')).toBe('/catalog');
     expect(telegramBackFallback('/ideas/recipes')).toBe('/ideas');
     expect(telegramBackFallback('/profile/store')).toBe('/profile');
