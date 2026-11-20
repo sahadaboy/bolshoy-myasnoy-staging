@@ -6,9 +6,19 @@
     <meta name="theme-color" content="#C51F2D" />
     <meta name="description" content="Каталог магазина «Большой Мясной». Севастополь, Камышовое шоссе, 25. Выбирайте продукты и сохраняйте корзину." />
     <link rel="icon" type="image/png" href="/brand-logo-original.png" />
+    <link rel="stylesheet" href="/boot.css" />
+    <script src="/boot.js" defer></script>
     <title>Каталог — Большой Мясной</title>
   </head>
   <body>
+    <div id="app-boot" role="status" aria-label="Открываем магазин">
+      <img src="/brand-logo-original.png" alt="" width="76" height="76" />
+      <strong>Большой Мясной Маркет</strong>
+      <span class="boot-track" aria-hidden="true"></span>
+      <p id="boot-error" hidden>Не удалось открыть магазин. Проверьте соединение и повторите попытку.</p>
+      <button id="boot-retry" hidden>Повторить</button>
+      <noscript>Для открытия магазина включите JavaScript.</noscript>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

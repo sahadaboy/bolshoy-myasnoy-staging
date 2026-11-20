@@ -1,3 +1,4 @@
+import { PageSkeleton } from '../components/Loading';
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, CircleHelp, MapPin, Phone, ReceiptText, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -44,8 +45,8 @@ export default function ProfilePage() {
   const [notice, setNotice] = useState('');
   const [photoFailed, setPhotoFailed] = useState(false);
   useEffect(() => {
-    setPhone(formatPhoneInput(user?.phone || ''));
-  }, [user?.phone]);
+    if (!editing) setPhone(formatPhoneInput(user?.phone || ''));
+  }, [user?.phone, editing]);
   useEffect(() => {
     setPhotoFailed(false);
   }, [user?.photo_url]);
@@ -54,6 +55,7 @@ export default function ProfilePage() {
     [user?.id],
   );
   const orders = useResource(loadOrders);
+  if (session.loading && !session.data) return <PageSkeleton kind="profile" />;
   return (
     <>
       <div className="page-intro">

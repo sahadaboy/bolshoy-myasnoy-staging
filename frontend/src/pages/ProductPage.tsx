@@ -13,7 +13,8 @@ import {
 } from '../lib/quantity';
 import { ProductImage } from '../components/ProductImage';
 import { QuantityControl } from '../components/QuantityControl';
-import { ErrorState, LoadingGrid } from '../components/States';
+import { ErrorState } from '../components/States';
+import { PageSkeleton } from '../components/Loading';
 import { BackLink } from '../components/Retail';
 
 export function ProductPage() {
@@ -25,17 +26,20 @@ export function ProductPage() {
   const [notice, setNotice] = useState('');
   useEffect(() => {
     if (product) {
-      setDraft(minQuantity(product));
       syncProducts([product]);
     }
   }, [product, syncProducts]);
+  useEffect(() => {
+    if (product) setDraft(minQuantity(product));
+  }, [product?.id]);
   const inCart = product ? cart.getQuantity(product.id) : 0;
   return (
     <>
       <BackLink />
-      {loading ? (
-        <LoadingGrid count={2} />
-      ) : error || !product ? (
+      {error && product && <ErrorState compact retry={retry} message={error} />}
+      {loading && !product ? (
+        <PageSkeleton kind="product" />
+      ) : !product ? (
         <ErrorState retry={retry} message={error || 'Товар не найден.'} />
       ) : (
         <article className="retail-product-detail">
@@ -48,7 +52,11 @@ export function ProductPage() {
             ))}
           </div>
           <h1>{product.name}</h1>
-          <p className="retail-subtitle">{product.is_available ? 'В каталоге · наличие подтвердит сотрудник' : 'Недоступен для заявки'}</p>
+          <p className="retail-subtitle">
+            {product.is_available
+              ? 'В каталоге · наличие подтвердит сотрудник'
+              : 'Недоступен для заявки'}
+          </p>
           <p className="retail-detail-price">
             {formatMoney(priceKopecks(product))}
             <span>/{product.unit === 'kg' ? 'кг' : 'шт'}</span>

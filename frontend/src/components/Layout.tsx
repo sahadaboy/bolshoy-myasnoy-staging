@@ -1,4 +1,4 @@
-import { type FormEvent, Suspense, useEffect, useState } from 'react';
+import { type FormEvent, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import {
   BookOpen,
   ChevronRight,
@@ -15,6 +15,8 @@ import '../preview/preview.css';
 import '../retail.css';
 import { STORE_BRAND } from '../data/brand';
 import { catalogFilterParams } from '../lib/catalogFilters';
+import { completeBoot } from '../lib/boot';
+import { CartBadge, PageErrorBoundary, RouteSkeleton } from './Loading';
 
 const navigation = [
   { to: '/catalog', label: 'Каталог', icon: Grid2X2 },
@@ -75,8 +77,9 @@ export function SearchForm({ onFilters }: { onFilters?: () => void }) {
 }
 
 export function Layout() {
-  const { itemCount } = useCart();
+  const { itemCount, localChangeId } = useCart();
   const { pathname } = useLocation();
+  useLayoutEffect(() => completeBoot(document, window), []);
   const [inputMode, setInputMode] = useState<'pointer' | 'keyboard'>('keyboard');
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
@@ -114,16 +117,13 @@ export function Layout() {
           </Link>
         </header>
         <main id="main" className="rp-main">
-          <Suspense
-            fallback={
-              <div className="route-loading" role="status" aria-label="Загрузка страницы">
-                <span className="skeleton" />
-                <span className="skeleton" />
-              </div>
-            }
-          >
-            <Outlet />
-          </Suspense>
+          <div className="route-content" key={pathname}>
+            <PageErrorBoundary>
+              <Suspense fallback={<RouteSkeleton path={pathname} />}>
+                <Outlet />
+              </Suspense>
+            </PageErrorBoundary>
+          </div>
         </main>
         <nav className="rp-nav" aria-label="Основные разделы">
           {navigation.map(({ to, label, icon: Icon }) => (
@@ -140,7 +140,7 @@ export function Layout() {
             >
               <span className="rp-nav-icon">
                 <Icon size={23} strokeWidth={1.6} />
-                {to === '/cart' && itemCount > 0 && <b aria-hidden="true">{itemCount}</b>}
+                {to === '/cart' && <CartBadge count={itemCount} changeId={localChangeId} />}
               </span>
               <span>{label}</span>
             </NavLink>

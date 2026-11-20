@@ -1,3 +1,4 @@
+import { PageSkeleton } from '../components/Loading';
 import { useRef } from 'react';
 import { ArrowRight, MapPin, ShoppingBasket, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -17,7 +18,9 @@ export function CartPage() {
   return (
     <>
       <CartSyncNotice />
-      {!cart.items.length ? (
+      {!cart.items.length && cart.syncStatus === 'loading' ? (
+        <PageSkeleton kind="cart" />
+      ) : !cart.items.length ? (
         <div className="retail-empty-cart">
           <span>
             <ShoppingBasket size={48} strokeWidth={1.3} />

@@ -7,6 +7,7 @@ import App from './App';
 import { loadTelegramWebApp } from './lib/telegram';
 import '@fontsource-variable/manrope';
 import './styles.css';
+import './loading.css';
 
 // Initialize the SDK before Router can remove Telegram's launch fragment.
 // Plain browsers skip the network request and render immediately.

@@ -108,6 +108,7 @@ export function useProducts(
   const [attempt, setAttempt] = useState(0);
   const currentController = useRef<AbortController | null>(null);
   const busy = useRef(false);
+  const displayedKey = useRef(cacheKey);
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   useEffect(() => {
@@ -121,6 +122,7 @@ export function useProducts(
     }
     const cached = productSnapshots.get(cacheKey);
     if (navigationType === 'POP' && attempt === 0 && cached && cached.expires > Date.now()) {
+      displayedKey.current = cacheKey;
       setProducts(cached.products);
       setCount(cached.count);
       setNext(cached.next);
@@ -132,10 +134,13 @@ export function useProducts(
       return () => controller.abort();
     }
     busy.current = true;
-    setProducts([]);
-    setNext(null);
-    setCount(0);
-    setTags([]);
+    if (displayedKey.current !== cacheKey) {
+      setProducts([]);
+      setNext(null);
+      setCount(0);
+      setTags([]);
+    }
+    displayedKey.current = cacheKey;
     setLoading(true);
     setLoadingMore(false);
     setError(null);
@@ -239,7 +244,7 @@ export function useProduct(id: string | undefined) {
 
   useEffect(() => {
     const controller = new AbortController();
-    setProduct(null);
+    setProduct((previous) => (previous?.id === Number(id) ? previous : null));
     setLoading(true);
     setError(null);
     fetchProduct(id ?? '', controller.signal)

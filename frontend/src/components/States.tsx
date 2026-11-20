@@ -3,11 +3,19 @@ import { Link } from 'react-router-dom';
 
 export function LoadingGrid({ count = 8 }: { count?: number }) {
   return (
-    <div className="product-grid" aria-busy="true" aria-label="Загружаем товары">
+    <div
+      className="product-grid loading-surface"
+      role="status"
+      aria-busy="true"
+      aria-label="Загружаем товары"
+    >
       {Array.from({ length: count }, (_, index) => (
         <div className="product-card skeleton-card" key={index}>
           <div className="skeleton skeleton-picture" />
-          <div className="skeleton skeleton-price" />
+          <div className="loading-purchase">
+            <div className="skeleton skeleton-price" />
+            <span className="skeleton loading-add" />
+          </div>
           <div className="skeleton skeleton-line" />
           <div className="skeleton skeleton-line short" />
           <div className="skeleton skeleton-button" />

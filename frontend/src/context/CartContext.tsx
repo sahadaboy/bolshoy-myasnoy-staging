@@ -23,6 +23,7 @@ const STORAGE_KEY = 'bolshoy-myasnoy.cart.v1';
 const MAX_STORED_ITEMS = 6000;
 
 interface CartContextValue {
+  localChangeId: number;
   syncStatus: CartViewState['status'];
   syncError: string;
   retrySync: () => void;
@@ -106,6 +107,7 @@ function loadCart(): { items: CartItem[]; storageIssue: boolean } {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const [localChangeId, setLocalChangeId] = useState(0);
   const session = useSession();
   const [initial] = useState(loadCart);
   const [items, setItems] = useState<CartItem[]>(initial.items);
@@ -169,6 +171,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const commit = useCallback(
     (next: CartItem[]): boolean => {
       if (!Number.isSafeInteger(total(next))) return false;
+      if (next.length !== itemsRef.current.length) setLocalChangeId((value) => value + 1);
       itemsRef.current = next;
       setItems(next);
       engine.edit(next);
@@ -292,6 +295,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <CartContext.Provider
       value={{
+        localChangeId,
         syncStatus: syncState.status,
         syncError: syncState.error,
         retrySync: () => void engine.sync(),

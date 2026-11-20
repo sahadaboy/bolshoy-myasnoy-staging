@@ -78,6 +78,16 @@ class SnapshotTests(TestCase):
 
 
 class StagingBoundaryTests(SimpleTestCase):
+    def test_only_explicit_boot_assets_are_published_for_the_html_splash(self):
+        with TemporaryDirectory() as folder:
+            root=Path(folder);source=root/'dist';target=root/'published';source.mkdir()
+            for name in ('index.html','boot.js','boot.css','private-helper.js'):
+                (source/name).write_text('test-build')
+            collect(source,target)
+            self.assertEqual((target/'boot.js').read_text(),'test-build')
+            self.assertEqual((target/'boot.css').read_text(),'test-build')
+            self.assertFalse((target/'private-helper.js').exists())
+
     def test_asset_collection_never_copies_preview_source_env_or_maps(self):
         with TemporaryDirectory() as folder:
             source, target = Path(folder) / 'dist', Path(folder) / 'public'
