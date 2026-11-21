@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigationType } from 'react-router-dom';
-import type { Category, Product, CatalogTag } from '../types';
+import { useCallback, useEffect, useState } from 'react';
+import type { Product, CatalogTag } from '../types';
 import {
   fetchCategories,
   fetchProduct,
@@ -8,55 +7,16 @@ import {
   fetchProducts,
   type ProductFilters,
 } from '../lib/api';
+import { resourceCache } from '../lib/resourceCache';
+import { useResource } from './useResource';
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Не удалось загрузить данные.';
-
-// A small shared resource avoids duplicate category requests across navigation
-// and StrictMode mounts. Each subscriber still ignores updates after unmount.
-let categoriesCache: { data: Category[]; expires: number } | undefined;
-let categoriesRequest: Promise<Category[]> | undefined;
-function loadCategories(force: boolean): Promise<Category[]> {
-  if (!force && categoriesCache && categoriesCache.expires > Date.now())
-    return Promise.resolve(categoriesCache.data);
-  if (!categoriesRequest) {
-    categoriesRequest = fetchCategories()
-      .then((data) => {
-        categoriesCache = { data, expires: Date.now() + 60_000 };
-        return data;
-      })
-      .finally(() => {
-        categoriesRequest = undefined;
-      });
-  }
-  return categoriesRequest;
-}
+const emptyProducts: Product[] = [];
 
 export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const retry = useCallback(() => setAttempt((value) => value + 1), []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    loadCategories(attempt > 0)
-      .then((data) => {
-        if (!controller.signal.aborted) setCategories(data);
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted) setError(errorMessage(reason));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [attempt]);
-
-  return { categories, loading, error, retry };
+  const resource = useResource(fetchCategories, { cacheKey: 'categories' });
+  return { ...resource, categories: resource.data || [] };
 }
 
 type ProductSnapshot = {
@@ -64,13 +24,34 @@ type ProductSnapshot = {
   count: number;
   next: string | null;
   tags: CatalogTag[];
-  expires: number;
+  pages: number;
+  validated: Product[];
 };
-const productSnapshots = new Map<string, ProductSnapshot>();
-function rememberProducts(key: string, value: Omit<ProductSnapshot, 'expires'>) {
-  productSnapshots.delete(key);
-  productSnapshots.set(key, { ...value, expires: Date.now() + 300_000 });
-  while (productSnapshots.size > 3) productSnapshots.delete(productSnapshots.keys().next().value!);
+const uniqueProducts = (products: Product[]) => [
+  ...new Map(products.map((product) => [product.id, product])).values(),
+];
+
+/** Refresh the loaded depth atomically: never collapse a scrolled list to page one. */
+export async function loadProductSnapshot(
+  filters: ProductFilters,
+  depth: number,
+  signal: AbortSignal
+): Promise<ProductSnapshot> {
+  let page = await fetchProducts(filters, signal);
+  const count = page.count;
+  const tags = page.tags || [];
+  const products = [...page.results];
+  const seen = new Set<string>();
+  let pages = 1;
+  while (page.next && pages < depth) {
+    if (seen.has(page.next)) throw new Error('Сервер повторяет страницу товаров.');
+    seen.add(page.next);
+    page = await fetchProductPage(page.next, signal);
+    products.push(...page.results);
+    pages += 1;
+  }
+  const unique = uniqueProducts(products);
+  return { products: unique, count, tags, next: page.next, pages, validated: unique };
 }
 
 export function useProducts(
@@ -84,154 +65,76 @@ export function useProducts(
     ordering,
     collection,
   }: ProductFilters = {},
-  enabled = true,
+  enabled = true
 ) {
-  const navigationType = useNavigationType();
-  const cacheKey = JSON.stringify([
-    category || '',
-    categoryGroup || '',
-    tag || '',
-    search || '',
-    unit || '',
-    !!available,
-    ordering || '',
-    collection || '',
-  ]);
-  const initial = navigationType === 'POP' ? productSnapshots.get(cacheKey) : undefined;
-  const [products, setProducts] = useState<Product[]>(initial?.products || []);
-  const [loading, setLoading] = useState(enabled && !initial);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [count, setCount] = useState(initial?.count || 0);
-  const [next, setNext] = useState<string | null>(initial?.next || null);
-  const [tags, setTags] = useState<CatalogTag[]>(initial?.tags || []);
-  const [attempt, setAttempt] = useState(0);
-  const currentController = useRef<AbortController | null>(null);
-  const busy = useRef(false);
-  const displayedKey = useRef(cacheKey);
-  const retry = useCallback(() => setAttempt((value) => value + 1), []);
-
-  useEffect(() => {
-    currentController.current?.abort();
-    const controller = new AbortController();
-    currentController.current = controller;
-    if (!enabled) {
-      setLoading(false);
-      busy.current = false;
-      return () => controller.abort();
-    }
-    const cached = productSnapshots.get(cacheKey);
-    if (navigationType === 'POP' && attempt === 0 && cached && cached.expires > Date.now()) {
-      displayedKey.current = cacheKey;
-      setProducts(cached.products);
-      setCount(cached.count);
-      setNext(cached.next);
-      setTags(cached.tags);
-      setLoading(false);
-      setLoadingMore(false);
-      setError(null);
-      busy.current = false;
-      return () => controller.abort();
-    }
-    busy.current = true;
-    if (displayedKey.current !== cacheKey) {
-      setProducts([]);
-      setNext(null);
-      setCount(0);
-      setTags([]);
-    }
-    displayedKey.current = cacheKey;
-    setLoading(true);
-    setLoadingMore(false);
-    setError(null);
-    fetchProducts(
-      { category, categoryGroup, tag, search, unit, available, ordering, collection },
-      controller.signal,
-    )
-      .then((page) => {
-        if (controller.signal.aborted) return;
-        setProducts(page.results);
-        setCount(page.count);
-        setNext(page.next);
-        setTags(page.tags || []);
-        rememberProducts(cacheKey, {
-          products: page.results,
-          count: page.count,
-          next: page.next,
-          tags: page.tags || [],
-        });
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted) setError(errorMessage(reason));
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        setLoading(false);
-        busy.current = false;
-      });
-    return () => controller.abort();
-  }, [
-    category,
-    categoryGroup,
-    tag,
-    search,
-    unit,
-    available,
-    ordering,
-    collection,
-    attempt,
-    enabled,
+  const cacheKey =
+    'products:' +
+    JSON.stringify([
+      category || '',
+      categoryGroup || '',
+      tag || '',
+      search || '',
+      unit || '',
+      !!available,
+      ordering || '',
+      collection || '',
+    ]);
+  const load = useCallback(
+    (signal: AbortSignal) =>
+      loadProductSnapshot(
+        { category, categoryGroup, tag, search, unit, available, ordering, collection },
+        resourceCache.get<ProductSnapshot>(cacheKey).getSnapshot().data?.pages || 1,
+        signal
+      ),
+    [category, categoryGroup, tag, search, unit, available, ordering, collection, cacheKey]
+  );
+  const resource = useResource(load, {
     cacheKey,
-    navigationType,
-  ]);
-
+    staleTime: 15_000,
+    refreshInterval: 30_000,
+    enabled,
+  });
+  const { entry } = resource;
+  const [moreKey, setMoreKey] = useState<string | null>(null);
   const loadMore = useCallback(async () => {
-    if (!next || busy.current) return;
-    const controller = currentController.current;
-    if (!controller || controller.signal.aborted) return;
-    busy.current = true;
-    setLoadingMore(true);
-    setError(null);
+    const current = entry.getSnapshot();
+    if (!enabled || current.refreshing || !current.data?.next) return;
+    const previous = current.data;
+    setMoreKey(cacheKey);
     try {
-      const page = await fetchProductPage(next, controller.signal);
-      if (controller.signal.aborted) return;
-      setProducts((previous) => {
-        const combined = [
-          ...new Map(
-            [...previous, ...page.results].map((product) => [product.id, product]),
-          ).values(),
-        ];
-        rememberProducts(cacheKey, {
-          products: combined,
-          count: page.count,
-          next: page.next,
-          tags: page.tags || [],
-        });
-        return combined;
-      });
-      setCount(page.count);
-      setNext(page.next);
-    } catch (reason) {
-      if (!controller.signal.aborted) setError(errorMessage(reason));
+      await entry.load(
+        async (signal) => {
+          const page = await fetchProductPage(previous.next!, signal);
+          return {
+            products: uniqueProducts([...previous.products, ...page.results]),
+            count: page.count,
+            next: page.next,
+            tags: page.tags || previous.tags,
+            pages: previous.pages + 1,
+            validated: page.results,
+          };
+        },
+        { force: true, preserveAge: true }
+      );
+    } catch {
+      // The shared entry retains the list and exposes a retryable error.
     } finally {
-      if (!controller.signal.aborted) {
-        busy.current = false;
-        setLoadingMore(false);
-      }
+      setMoreKey((key) => (key === cacheKey ? null : key));
     }
-  }, [next, cacheKey]);
-
+  }, [entry, enabled, cacheKey]);
   return {
-    products,
-    loading,
-    loadingMore,
-    error,
-    count,
-    tags,
-    next,
-    hasMore: Boolean(next),
+    products: resource.data?.products || emptyProducts,
+    validatedProducts: resource.revalidated ? resource.data!.validated : emptyProducts,
+    loading: resource.loading,
+    loadingMore: moreKey === cacheKey,
+    refreshing: resource.refreshing,
+    error: resource.error || resource.refreshError,
+    count: resource.data?.count || 0,
+    tags: resource.data?.tags || [],
+    next: resource.data?.next || null,
+    hasMore: Boolean(resource.data?.next),
     loadMore,
-    retry,
+    retry: resource.retry,
   };
 }
 

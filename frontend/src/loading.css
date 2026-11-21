@@ -1,16 +1,3 @@
-.route-content {
-  animation: page-appear 180ms ease-out;
-}
-@keyframes page-appear {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 .retail .cart-digit-pulse {
   animation: digit-pulse 200ms ease-out;
 }

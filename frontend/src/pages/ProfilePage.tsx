@@ -54,7 +54,9 @@ export default function ProfilePage() {
     (signal: AbortSignal) => (user ? fetchOrders(1, signal) : Promise.resolve(null)),
     [user?.id],
   );
-  const orders = useResource(loadOrders);
+  const orders = useResource(loadOrders, {
+    cacheKey: `profile-orders:${user?.id ?? 'guest'}`, staleTime: 0, enabled: Boolean(user),
+  });
   if (session.loading && !session.data) return <PageSkeleton kind="profile" />;
   return (
     <>

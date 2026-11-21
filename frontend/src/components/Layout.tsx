@@ -18,6 +18,7 @@ import { catalogFilterParams } from '../lib/catalogFilters';
 import { completeBoot } from '../lib/boot';
 import { CartBadge, PageErrorBoundary, RouteSkeleton } from './Loading';
 import { NavigationGlass, useNavigationAppearance } from './NavigationGlass';
+import { navigationMemory } from '../lib/navigationMemory';
 
 const navigation = [
   { to: '/catalog', label: 'Каталог', icon: Grid2X2 },
@@ -124,8 +125,8 @@ export function Layout() {
           className="rp-main"
           data-glisse-backdrop={renderer === 'drawn' ? '' : undefined}
         >
-          <div className="route-content" key={pathname}>
-            <PageErrorBoundary>
+          <div className="route-content">
+            <PageErrorBoundary key={pathname}>
               <Suspense fallback={<RouteSkeleton path={pathname} />}>
                 <Outlet />
               </Suspense>
@@ -137,7 +138,7 @@ export function Layout() {
           {navigation.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
-              to={to}
+              to={navigationMemory.destination(to, { pathname, search })}
               aria-label={to === '/cart' && itemCount ? `Корзина, позиций: ${itemCount}` : label}
               className={() =>
                 (to === '/catalog' && pathname.startsWith('/product/')) ||
