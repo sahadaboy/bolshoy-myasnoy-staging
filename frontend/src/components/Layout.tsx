@@ -17,6 +17,7 @@ import { STORE_BRAND } from '../data/brand';
 import { catalogFilterParams } from '../lib/catalogFilters';
 import { completeBoot } from '../lib/boot';
 import { CartBadge, PageErrorBoundary, RouteSkeleton } from './Loading';
+import { NavigationGlass, useNavigationAppearance } from './NavigationGlass';
 
 const navigation = [
   { to: '/catalog', label: 'Каталог', icon: Grid2X2 },
@@ -78,7 +79,8 @@ export function SearchForm({ onFilters }: { onFilters?: () => void }) {
 
 export function Layout() {
   const { itemCount, localChangeId } = useCart();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const { design, renderer } = useNavigationAppearance(search);
   useLayoutEffect(() => completeBoot(document, window), []);
   const [inputMode, setInputMode] = useState<'pointer' | 'keyboard'>('keyboard');
   useEffect(() => {
@@ -97,6 +99,7 @@ export function Layout() {
   return (
     <div
       className="rp retail"
+      data-nav-design={design}
       data-input-mode={inputMode}
       onPointerDownCapture={() => setInputMode('pointer')}
     >
@@ -116,7 +119,11 @@ export function Layout() {
             <ChevronRight size={20} strokeWidth={1.6} />
           </Link>
         </header>
-        <main id="main" className="rp-main">
+        <main
+          id="main"
+          className="rp-main"
+          data-glisse-backdrop={renderer === 'drawn' ? '' : undefined}
+        >
           <div className="route-content" key={pathname}>
             <PageErrorBoundary>
               <Suspense fallback={<RouteSkeleton path={pathname} />}>
@@ -126,6 +133,7 @@ export function Layout() {
           </div>
         </main>
         <nav className="rp-nav" aria-label="Основные разделы">
+          {design === 'glass' && <NavigationGlass enabled={renderer !== null} />}
           {navigation.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
