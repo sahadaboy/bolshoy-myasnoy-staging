@@ -132,9 +132,12 @@ def process_callback(update):
                     name=' '.join(' '.join(actor.get(k,'') for k in ('first_name','last_name') if isinstance(actor.get(k,''),str)).split())[:128] or str(staff_id)
                     changed=Order.objects.filter(pk=order.pk,status=Order.Status.NEW).update(status=Order.Status.CONFIRMED)
                     if not changed: response='Статус заказа уже изменён.';return
+                    order.status=Order.Status.CONFIRMED
                     OrderStatusEvent.objects.create(order=order,previous_status=Order.Status.NEW,status=Order.Status.CONFIRMED)
                     row.accepted_staff_id=staff_id;row.accepted_username=username;row.accepted_name=name;row.accepted_at=now
                     row.pending_staff_id=None;row.pending_nonce='';row.pending_until=None
+                    from .customer_notifications import enqueue_confirmation
+                    enqueue_confirmation(order)
                     response='Заказ принят.'
             row.ui_revision+=1;row.save()
     except Exception:

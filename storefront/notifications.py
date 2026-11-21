@@ -13,8 +13,8 @@ from .models import OrderNotification
 
 
 class DeliveryError(Exception):
-    def __init__(self, message, *, uncertain=False, retryable=False):
-        super().__init__(message); self.uncertain = uncertain; self.retryable = retryable
+    def __init__(self, message, *, uncertain=False, retryable=False, code=None):
+        super().__init__(message); self.uncertain = uncertain; self.retryable = retryable; self.code = code
 
 
 @sensitive_variables()
@@ -38,11 +38,12 @@ def telegram_call(method, data, *, timeout=10):
                  429: 'Слишком много запросов. Повторите позже.'}
         # Never log the request URL, raw exception or remote response body.
         raise DeliveryError(f'Telegram HTTP {exc.code}. {hints.get(exc.code, "Сервис временно недоступен.")}',
-            retryable=exc.code in (429, 500, 502, 503, 504)) from None
+            retryable=exc.code in (429, 500, 502, 503, 504), code=exc.code) from None
     except (URLError, TimeoutError, OSError, ValueError):
         raise DeliveryError('Не удалось подтвердить доставку. Проверьте чат перед повторной отправкой.', uncertain=method == 'sendMessage') from None
     if not isinstance(payload, dict) or not payload.get('ok'):
-        raise DeliveryError('Telegram отклонил запрос', retryable=payload.get('error_code') in (429, 500, 502, 503, 504) if isinstance(payload, dict) else False)
+        raise DeliveryError('Telegram отклонил запрос', retryable=payload.get('error_code') in (429, 500, 502, 503, 504) if isinstance(payload, dict) else False,
+            code=payload.get('error_code') if isinstance(payload,dict) else None)
     return payload['result']
 
 
