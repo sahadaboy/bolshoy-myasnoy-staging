@@ -281,9 +281,6 @@ button {
     108px + var(--app-safe-bottom)
   );
 }
-.route-content {
-  animation: route-in var(--motion-normal) var(--ease-out);
-}
 .bottom-nav {
   position: fixed;
   z-index: 30;
@@ -1456,16 +1453,6 @@ h2 {
 }
 .dialog-total strong {
   font-weight: 600;
-}
-@keyframes route-in {
-  from {
-    opacity: 0.45;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 @keyframes card-in {
   from {

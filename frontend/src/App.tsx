@@ -1,7 +1,8 @@
-import { lazy, useEffect, useLayoutEffect } from 'react';
+import { lazy, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { Link, Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { ScrollMemory } from './components/ScrollMemory';
 import { STORE_BRAND } from './data/brand';
 import { useTelegram } from './hooks/useTelegram';
 
@@ -38,24 +39,6 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const StoreMapPage = lazy(() => import('./pages/StoreMapPage'));
 const DinnerPage = lazy(() => import('./pages/DinnerPage'));
 const MeatGuidePage = lazy(() => import('./pages/MeatGuidePage'));
-const scrollPositions = new Map<string, number>();
-
-function ScrollMemory() {
-  const location = useLocation();
-  const action = useNavigationType();
-  useLayoutEffect(() => {
-    window.history.scrollRestoration = 'manual';
-    const y = action === 'POP' ? scrollPositions.get(location.key) || 0 : 0;
-    const frame = requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }));
-    return () => {
-      cancelAnimationFrame(frame);
-      scrollPositions.set(location.key, window.scrollY);
-      while (scrollPositions.size > 64)
-        scrollPositions.delete(scrollPositions.keys().next().value!);
-    };
-  }, [location.key, action]);
-  return null;
-}
 
 export default function App() {
   useTelegram();

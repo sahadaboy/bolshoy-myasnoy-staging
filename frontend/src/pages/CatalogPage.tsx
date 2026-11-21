@@ -38,7 +38,9 @@ export function CatalogPage() {
     !available &&
     !ordering;
   const categories = useCategories();
-  const showcase = useResource(fetchStorefront);
+  const showcase = useResource(fetchStorefront, {
+    cacheKey: 'storefront', staleTime: 15_000, refreshInterval: 30_000, enabled: home,
+  });
   const data = useProducts(
     { category, categoryGroup, tag, search, unit, available, ordering, collection },
     !home,
@@ -51,11 +53,12 @@ export function CatalogPage() {
     (item) => item.parent_id && String(item.parent_id) === category,
   );
   useEffect(() => {
-    syncProducts(data.products);
-  }, [data.products, syncProducts]);
+    syncProducts(data.validatedProducts);
+  }, [data.validatedProducts, syncProducts]);
   useEffect(() => {
-    if (showcase.data) syncProducts(showcase.data.collections.flatMap((item) => item.products));
-  }, [showcase.data, syncProducts]);
+    if (home && showcase.revalidated && showcase.data)
+      syncProducts(showcase.data.collections.flatMap((item) => item.products));
+  }, [home, showcase.data, showcase.revalidated, syncProducts]);
   function update(key: string, value: string) {
     if (key === 'tag' && tag === value) return;
     const next = catalogFilterParams(params, key, value);
@@ -181,12 +184,12 @@ export function CatalogPage() {
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
-              {data.error && <ErrorState compact retry={data.loadMore} message={data.error} />}
+              {data.error && <ErrorState compact retry={data.retry} message={data.error} />}
               {data.hasMore && (
                 <div className="load-more">
                   <button
                     className="button button-secondary"
-                    disabled={data.loadingMore}
+                    disabled={data.loadingMore || data.refreshing}
                     onClick={data.loadMore}
                   >
                     {data.loadingMore ? 'Загружаем…' : 'Показать ещё'}
@@ -258,7 +261,7 @@ export function CatalogPage() {
 
 const loadHomeIdeas = (signal: AbortSignal) => fetchIdeas(new URLSearchParams(), signal);
 function HomeIdeasTeaser() {
-  const { data } = useResource(loadHomeIdeas);
+  const { data } = useResource(loadHomeIdeas, { cacheKey: 'ideas:' });
   const articles = data?.results.filter((item) => !item.is_demo) || [];
   const article = articles.find((item) => item.is_featured) || articles[0];
   return article ? (

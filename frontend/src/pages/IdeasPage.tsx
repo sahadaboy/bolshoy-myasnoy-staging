@@ -21,19 +21,14 @@ export default function IdeasPage() {
   const kind = params.get('kind') || '';
   const page = params.get('page') || '';
   const category = params.get('category') || '';
+  const query = new URLSearchParams(Object.fromEntries(
+    Object.entries({ meal, kind, page, category }).filter(([, value]) => value),
+  )).toString();
   const load = useCallback(
-    (signal: AbortSignal) =>
-      fetchIdeas(
-        new URLSearchParams(
-          Object.fromEntries(
-            Object.entries({ meal, kind, page, category }).filter(([, value]) => value),
-          ),
-        ),
-        signal,
-      ),
-    [meal, kind, page, category],
+    (signal: AbortSignal) => fetchIdeas(new URLSearchParams(query), signal),
+    [query],
   );
-  const resource = useResource(load);
+  const resource = useResource(load, { cacheKey: `ideas:${query}` });
   const articles = (resource.data?.results || []).filter((article) => !article.is_demo);
   const feature =
     articles.find((article) => article.is_featured) ||
