@@ -299,3 +299,4 @@ from .experience_models import (StoreProfile, StorePhoto, DinnerSettings, Dinner
 from .customer_models import Customer, OrderStatusEvent, OrderNotification  # noqa: E402,F401
 from .cart_models import CustomerCart, CartOperation  # noqa: E402,F401
 from .pickup_models import StoreOpeningInterval, OrderAcceptance, TelegramCallbackReceipt  # noqa: E402,F401
+from .customer_notification_models import CustomerOrderNotification  # noqa: E402,F401

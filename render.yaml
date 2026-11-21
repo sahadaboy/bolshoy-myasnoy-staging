@@ -29,6 +29,9 @@ services:
         sync: false
       - key: TELEGRAM_NOTIFICATIONS_ENABLED
         sync: false
+      # Optional, defaults to 0 in Django; preserve the owner's Dashboard value.
+      - key: TELEGRAM_CUSTOMER_NOTIFICATIONS_ENABLED
+        sync: false
       - key: TELEGRAM_ADMIN_CHAT_ID
         sync: false
       - key: MINIAPP_WEIGHT_ESTIMATE

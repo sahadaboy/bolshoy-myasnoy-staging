@@ -10,6 +10,7 @@ from django.utils.html import format_html
 from .models import Banner, CategoryImage, ProductCollection, ProductCollectionItem, IdeaCategory, Article, Ingredient, RecipeStep, ArticleMember
 from .models import Order, OrderItem, IngredientAlternative
 from .models import Customer, OrderStatusEvent, OrderNotification
+from .customer_notification_admin import CustomerOrderNotificationAdmin  # noqa: F401
 from .customers import normalize_phone
 from .models import StoreProfile, StorePhoto, DinnerSettings, DinnerQuestion, DinnerOption, PantryIngredient, DinnerRecipe
 

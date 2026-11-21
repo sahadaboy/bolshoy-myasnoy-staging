@@ -1,0 +1,14 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Результат отправки неизвестен. Перед повтором уточните у покупателя, получено ли сообщение.
+Если результат установить нельзя, оставьте уведомление в состоянии «Требуется проверить доставку».</p>
+<p><strong>{{ row.order.number }}</strong>. Telegram ID покупателя: {{ row.recipient_telegram_id }}.
+Попыток: {{ row.attempts }}. {{ row.last_error }}</p>
+<form method="post">{% csrf_token %}
+  <input type="hidden" name="{{ action_checkbox_name }}" value="{{ row.pk }}">
+  <input type="hidden" name="action" value="review_delivery">
+  {{ form.as_p }}
+  <button type="submit" name="apply_review" value="yes">Сохранить результат проверки</button>
+  <a href="{{ request.path }}">Отмена</a>
+</form>
+{% endblock %}
